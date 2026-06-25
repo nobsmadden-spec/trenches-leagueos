@@ -28,6 +28,35 @@ test("Prisma repository normalizes durable league records to the API contract", 
   assert.equal(league.syncHealth.datasets[0].records, 1696);
 });
 
+test("Prisma repository ensures the foundation league when missing", async () => {
+  const ensuredLeague = {
+    id: "db-league",
+    slug: "the-trenches",
+    name: "The Trenches",
+    gameType: "MADDEN",
+    seasons: [{ number: 1, weeks: [{ number: 1, advancesAt: null }] }],
+    teams: [],
+    games: [],
+    players: [],
+    importRuns: []
+  };
+  const calls = { user: 0, league: 0, season: 0, week: 0 };
+  const repository = createPrismaRepository({
+    user: { upsert: async () => { calls.user += 1; return { id: "user-1" }; } },
+    league: {
+      findFirst: async () => (calls.league++ === 0 ? null : ensuredLeague),
+      upsert: async () => ({ id: "db-league" })
+    },
+    season: { upsert: async () => { calls.season += 1; return { id: "season-1" }; } },
+    week: { upsert: async () => { calls.week += 1; return { id: "week-1" }; } }
+  });
+  const league = await repository.getLeague("the-trenches");
+  assert.equal(league.id, "the-trenches");
+  assert.equal(calls.user, 1);
+  assert.equal(calls.season, 1);
+  assert.equal(calls.week, 1);
+});
+
 test("Prisma repository resolves opaque sessions to current memberships", async () => {
   let touched = false;
   const user = {

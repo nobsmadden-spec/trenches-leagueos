@@ -274,6 +274,40 @@ async function applyImportDatasets(transaction, league, input, datasets, season,
 }
 
 export function createPrismaRepository(client = prismaClient()) {
+  async function ensureLeague(slug) {
+    if (slug !== "the-trenches") return null;
+    const user = await client.user.upsert({
+      where: { discordId: "demo-commissioner" },
+      update: { username: "coach-devin", displayName: "Coach Devin" },
+      create: { discordId: "demo-commissioner", username: "coach-devin", displayName: "Coach Devin" }
+    });
+    const league = await client.league.upsert({
+      where: { slug },
+      update: { name: "The Trenches", gameType: "MADDEN" },
+      create: { slug, name: "The Trenches", gameType: "MADDEN", createdById: user.id }
+    });
+    const season = await client.season.upsert({
+      where: { leagueId_number: { leagueId: league.id, number: 1 } },
+      update: { isCurrent: true },
+      create: { leagueId: league.id, number: 1, label: "2026 Season", isCurrent: true }
+    });
+    await client.week.upsert({
+      where: { seasonId_number_phase: { seasonId: season.id, number: 1, phase: "REGULAR_SEASON" } },
+      update: {},
+      create: { seasonId: season.id, number: 1, phase: "REGULAR_SEASON" }
+    });
+    return client.league.findFirst({
+      where: { slug },
+      include: {
+        seasons: { where: { isCurrent: true }, take: 1, include: { weeks: { orderBy: { number: "desc" }, take: 1 } } },
+        teams: { include: { ownerMembership: { include: { user: true } }, seasonSnapshots: { where: { season: { isCurrent: true } }, orderBy: { capturedAt: "desc" }, take: 1 } } },
+        games: { where: { season: { isCurrent: true } } },
+        players: true,
+        importRuns: { orderBy: { createdAt: "desc" }, take: 1, include: { datasets: true } }
+      }
+    });
+  }
+
   return {
     adapter: "prisma",
     async listLeagues() {
@@ -290,7 +324,7 @@ export function createPrismaRepository(client = prismaClient()) {
       }));
     },
     async getLeague(id) {
-      const row = await client.league.findFirst({
+      let row = await client.league.findFirst({
         where: { OR: [{ id }, { slug: id }] },
         include: {
           seasons: { where: { isCurrent: true }, take: 1, include: { weeks: { orderBy: { number: "desc" }, take: 1 } } },
@@ -305,6 +339,7 @@ export function createPrismaRepository(client = prismaClient()) {
           importRuns: { orderBy: { createdAt: "desc" }, take: 1, include: { datasets: true } }
         }
       });
+      if (!row) row = await ensureLeague(id);
       return row ? normalizeLeague(row) : null;
     },
     getTeam(league, id) {
