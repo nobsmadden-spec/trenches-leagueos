@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#080b10">
+  <title>The Trenches LeagueOS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="noise"></div>
+  <header class="topbar">
+    <a class="brand" href="#"><span class="brand-mark">TT</span><span>THE TRENCHES<small>LEAGUE OS</small></span></a>
+    <nav aria-label="Primary navigation">
+      <button class="nav-link active" data-view="dashboard">Home</button>
+      <button class="nav-link" data-view="standings">League Hub</button>
+      <button class="nav-link" data-view="team">My Team</button>
+      <button class="nav-link" data-view="players">Scouting</button>
+      <button class="nav-link" data-view="trades">Trades</button>
+      <button class="nav-link" data-view="media">Media</button>
+      <button class="nav-link commissioner-only" data-view="office">League Office</button>
+    </nav>
+    <div class="topbar-tools">
+      <a id="identity-chip" class="identity-chip" href="/api/auth/discord">Sign in</a>
+      <button id="role-switch" class="role-switch" type="button">Coach View</button>
+      <div class="season-chip"><span class="live-dot"></span><span id="season-label">Loading league</span></div>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div>
+        <p class="eyebrow">League Command Center</p>
+        <h1>WELCOME TO<br><em>THE TRENCHES.</em></h1>
+        <p class="hero-copy">Every matchup. Every ranking. One league office built for Sundays.</p>
+      </div>
+      <div class="week-panel">
+        <span>Current advance</span><strong id="week-number">WEEK --</strong><small id="advance-at">Syncing schedule</small>
+      </div>
+    </section>
+
+    <section id="dashboard-view" class="view active">
+      <div class="workspace-grid">
+        <section class="panel action-panel">
+          <div class="panel-heading"><div><span id="action-eyebrow">Coach workspace</span><h2>Needs Attention</h2></div><span id="action-count" class="count-badge">0</span></div>
+          <div id="action-queue" class="action-queue"></div>
+        </section>
+        <section class="panel sync-panel">
+          <div class="panel-heading"><div><span>Data confidence</span><h2>League Sync</h2></div><span id="sync-state" class="health-badge">CHECKING</span></div>
+          <p id="sync-time" class="sync-time">Checking imported data...</p>
+          <div id="sync-datasets" class="sync-datasets"></div>
+        </section>
+      </div>
+      <div class="section-heading"><div><span>Prime Time</span><h2>Game of the Week</h2></div><span class="broadcast-tag">LIVE PREVIEW</span></div>
+      <article id="featured-game" class="featured skeleton"></article>
+
+      <div class="dashboard-grid">
+        <section class="panel finals-panel">
+          <div class="panel-heading"><div><span>Scoreboard</span><h2>Recent Finals</h2></div><button class="text-button" data-view-target="standings">Full table →</button></div>
+          <div id="recent-finals"></div>
+        </section>
+        <section class="panel rankings-panel">
+          <div class="panel-heading"><div><span>League Pulse</span><h2>Power Rankings</h2></div><span class="formula-badge">AUTO</span></div>
+          <ol id="power-rankings" class="ranking-list"></ol>
+        </section>
+      </div>
+
+      <section class="panel playoff-panel">
+        <div class="panel-heading"><div><span>Road to the title</span><h2>Playoff Picture</h2></div><span class="muted">Top 7 qualify</span></div>
+        <div id="playoff-picture" class="conference-grid"></div>
+      </section>
+    </section>
+
+    <section id="standings-view" class="view">
+      <div class="page-heading"><p class="eyebrow">Every division</p><h1>League Standings</h1></div>
+      <div id="standings-grid" class="standings-grid"></div>
+    </section>
+
+    <section id="players-view" class="view">
+      <div class="page-heading"><p class="eyebrow">Roster intelligence</p><h1>Player Search</h1></div>
+      <label class="search"><span>⌕</span><input id="player-search" type="search" placeholder="Search name or position (try QB)" autocomplete="off"></label>
+      <div id="player-results" class="player-grid"></div>
+    </section>
+
+    <section id="team-view" class="view">
+      <div class="page-heading"><p class="eyebrow">Coach workspace</p><h1>My Team</h1></div>
+      <div id="team-command" class="team-command skeleton"></div>
+    </section>
+
+    <section id="trades-view" class="view">
+      <div class="page-heading"><p class="eyebrow">Negotiation to decision</p><h1>Trade Center</h1></div>
+      <div class="status-tabs"><button class="active">All Activity</button><button>Negotiating</button><button>Committee</button><button>Completed</button></div>
+      <div id="trade-list" class="trade-list"></div>
+    </section>
+
+    <section id="media-view" class="view">
+      <div class="page-heading"><p class="eyebrow">The league never sleeps</p><h1>Media Room</h1></div>
+      <div id="media-grid" class="media-grid"></div>
+    </section>
+
+    <section id="office-view" class="view">
+      <div class="page-heading"><p class="eyebrow">Commissioner access</p><h1>League Office</h1></div>
+      <div class="office-grid">
+        <section class="panel"><div class="panel-heading"><div><span>Operations</span><h2>Commissioner Queue</h2></div></div><div id="office-actions" class="action-queue"></div></section>
+        <section class="panel"><div class="panel-heading"><div><span>Importer</span><h2>Dataset Health</h2></div></div><div id="office-sync" class="office-sync"></div></section>
+        <section class="panel office-wide"><div class="panel-heading"><div><span>Phase 2 Import</span><h2>Upload League Export</h2></div><span id="import-state" class="muted">Accepts LeagueOS JSON, Snallabot JSON, CSV, or export URL</span></div><div class="import-box"><label>Snallabot Receiver Base URL<input id="receiver-url" value="/api/import-receivers/snallabot/the-trenches/token/YOUR_TOKEN"></label><button id="receiver-copy" class="text-button" type="button">Copy Receiver URL</button><label>Snallabot Export URL<input id="import-url" type="url" placeholder="https://..."></label><button id="import-url-submit" class="primary-button" type="button">Import From URL</button><label>LeagueOS or Snallabot JSON<input id="import-file" type="file" accept="application/json,.json"></label><label>CSV exports<input id="csv-files" type="file" accept=".csv,text/csv" multiple></label><div class="import-fields"><input id="import-season" placeholder="Season" inputmode="numeric"><input id="import-week" placeholder="Week" inputmode="numeric"></div><textarea id="import-json" placeholder="Paste leagueos-import/v1 or snallabot-export/v1 JSON here, or choose teams/players/standings/games CSV files above"></textarea><div class="import-buttons"><button id="import-sample" class="text-button" type="button">Load Sample Export</button><button id="import-submit" class="primary-button" type="button">Run Import</button></div><p id="import-result" class="import-result muted">Paste a Snallabot export URL, choose a JSON export, or paste JSON.</p></div></section>
+        <section class="panel office-wide"><div class="panel-heading"><div><span>Import History</span><h2>Recent Runs</h2></div><span class="muted">Raw payloads are fingerprinted</span></div><div id="receiver-attempts" class="import-history"></div><div id="import-history" class="import-history"></div></section>
+        <section class="panel office-wide"><div class="panel-heading"><div><span>Onboarding</span><h2>Open Team Pipeline</h2></div><button class="primary-button">Create Join Code</button></div><div id="open-teams" class="open-team-grid"></div></section>
+        <section class="panel office-wide"><div class="panel-heading"><div><span>Identity and access</span><h2>Members &amp; Assignments</h2></div><span id="member-save-state" class="muted">Changes are audited</span></div><div id="member-table" class="member-table"></div></section>
+      </div>
+    </section>
+
+    <section id="platform-view" class="view">
+      <div class="platform-intro">
+        <div class="page-heading"><p class="eyebrow">One connected league office</p><h1>Built For The Full Season</h1></div>
+        <p>From onboarding day to the championship, every league workflow has a home. The platform is organized around seven pillars that keep coaches informed, active, and connected.</p>
+      </div>
+      <div class="feature-grid">
+        <article class="feature-card feature-card-wide">
+          <div class="feature-number">01</div><div class="feature-icon">LH</div>
+          <p class="feature-kicker">Competition</p><h2>Live League Hub</h2>
+          <p>Standings, stat leaders, power rankings, playoff races, awards, and league history, all organized in one place.</p>
+          <div class="feature-links"><span>Standings</span><span>Stat leaders</span><span>Awards</span><span>League history</span></div>
+        </article>
+        <article class="feature-card">
+          <div class="feature-number">02</div><div class="feature-icon">GT</div>
+          <p class="feature-kicker">Game week</p><h2>Automated Game Threads</h2>
+          <p>Auto-created matchup threads with coach tags, team analytics, activity tracking, scheduling support, and easier game communication.</p>
+        </article>
+        <article class="feature-card">
+          <div class="feature-number">03</div><div class="feature-icon">SD</div>
+          <p class="feature-kicker">Team building</p><h2>Scouting &amp; Draft Tools</h2>
+          <p>Full scouting hub with draft classes, big boards, draft primers, prospect intel, and live mock draft support.</p>
+        </article>
+        <article class="feature-card feature-accent">
+          <div class="feature-number">04</div><div class="feature-icon">TC</div>
+          <p class="feature-kicker">League office</p><h2>Trade Center<sup>*</sup></h2>
+          <p>Trade blocks, submissions, committee voting, approvals, denials, and organized trade management.</p>
+          <span class="planned-tag">Commissioner controlled</span>
+        </article>
+        <article class="feature-card">
+          <div class="feature-number">05</div><div class="feature-icon">CO</div>
+          <p class="feature-kicker">Coach experience</p><h2>Coach Onboarding</h2>
+          <p>Automatic team roles, welcome messages, quick-start setup, and open team management for new coaches.</p>
+        </article>
+        <article class="feature-card">
+          <div class="feature-number">06</div><div class="feature-icon">WC</div>
+          <p class="feature-kicker">League media</p><h2>Weekly League Content</h2>
+          <p>Weekly awards, matchup previews, strategy posts, streams, draft grades, rankings, and league storylines.</p>
+        </article>
+        <article class="feature-card feature-card-wide systems-card">
+          <div class="feature-number">07</div><div class="feature-icon">SX</div>
+          <p class="feature-kicker">Beyond the schedule</p><h2>Systems</h2>
+          <p>Recognition systems, coach perks, engagement tools, sportsbook-style features, and advanced league experiences.</p>
+          <div class="feature-links"><span>Recognition</span><span>Coach perks</span><span>Engagement</span><span>Advanced experiences</span></div>
+        </article>
+      </div>
+      <p class="feature-note"><sup>*</sup> Trade Center rules, voting requirements, and approval authority are configured by league commissioners.</p>
+    </section>
+  </main>
+
+  <footer><span>THE TRENCHES</span><p>League data shown from the seeded evaluation environment.</p><span>EST. 2026</span></footer>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,41 @@
+services:
+  - type: web
+    name: trenches-leagueos
+    runtime: node
+    plan: free
+    buildCommand: corepack enable && corepack prepare pnpm@9.15.9 --activate && pnpm install --frozen-lockfile && pnpm db:generate
+    preDeployCommand: pnpm db:deploy && pnpm db:seed
+    startCommand: pnpm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: DEMO_MODE
+        value: false
+      - key: REPOSITORY_ADAPTER
+        value: prisma
+      - key: DATABASE_URL
+        fromDatabase:
+          name: trenches-leagueos-db
+          property: connectionString
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: SNALLABOT_WEBHOOK_TOKEN
+        generateValue: true
+      - key: DISCORD_CLIENT_ID
+        sync: false
+      - key: DISCORD_CLIENT_SECRET
+        sync: false
+      - key: DISCORD_REDIRECT_URI
+        sync: false
+      - key: LEAGUE_OWNER_DISCORD_ID
+        sync: false
+      - key: LEAGUE_OWNER_TEAM
+        value: buf
+
+databases:
+  - name: trenches-leagueos-db
+    databaseName: leagueos
+    user: leagueos

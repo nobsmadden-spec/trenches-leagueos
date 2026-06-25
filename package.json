@@ -1,0 +1,29 @@
+{
+  "name": "trenches-leagueos",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@9.15.9",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "node --watch apps/api/src/server.js",
+    "start": "node apps/api/src/server.js",
+    "test": "node --test",
+    "check": "node --check apps/api/src/server.js && node --check packages/league-core/src/index.js",
+    "preflight": "node scripts/preflight.js",
+    "db:generate": "pnpm --filter @trenches/database run generate",
+    "db:migrate": "pnpm --filter @trenches/database run migrate:dev",
+    "db:deploy": "pnpm --filter @trenches/database run migrate:deploy",
+    "db:seed": "pnpm --filter @trenches/database run seed",
+    "import:csv:bundle": "node packages/ea-importer/scripts/csv-to-bundle.js",
+    "bot:preflight": "pnpm --filter @trenches/bot run preflight",
+    "bot:invite": "pnpm --filter @trenches/bot run invite",
+    "bot:diagnose-env": "pnpm --filter @trenches/bot run diagnose-env",
+    "bot:start": "pnpm --filter @trenches/bot run start"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

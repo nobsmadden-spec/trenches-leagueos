@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "leagueos-import/v1",
+  "source": "csv-cli",
+  "season": "2",
+  "week": "11",
+  "teams": [
+    {
+      "externalId": "BUF",
+      "name": "Buffalo Bills",
+      "abbreviation": "BUF",
+      "conference": "AFC",
+      "division": "East",
+      "primaryColor": "#2563eb"
+    }
+  ],
+  "players": [
+    {
+      "externalId": "p1",
+      "teamExternalId": "BUF",
+      "name": "Josh Allen",
+      "position": "QB",
+      "overall": "95",
+      "devTrait": "X-Factor",
+      "age": "30"
+    }
+  ],
+  "standings": [
+    {
+      "teamExternalId": "BUF",
+      "wins": "8",
+      "losses": "2",
+      "ties": "0",
+      "pointsFor": "286",
+      "pointsAgainst": "201",
+      "turnoverDiff": "7"
+    }
+  ],
+  "games": [
+    {
+      "externalId": "g1",
+      "week": "11",
+      "homeTeamExternalId": "BUF",
+      "awayTeamExternalId": "BUF",
+      "status": "SCHEDULED",
+      "scheduledAt": "2026-06-25T01:00:00.000Z"
+    }
+  ]
+}

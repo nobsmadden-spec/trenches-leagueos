@@ -1,0 +1,16 @@
+{
+  "name": "@trenches/bot",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "preflight": "node scripts/preflight.js",
+    "invite": "node scripts/invite.js",
+    "diagnose-env": "node scripts/diagnose-env.js",
+    "check": "node --check src/index.js"
+  },
+  "dependencies": {
+    "discord.js": "^14.18.0"
+  }
+}

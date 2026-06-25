@@ -1,0 +1,316 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum GameType {
+  MADDEN
+  CFB
+}
+
+enum LeagueRole {
+  COACH
+  COMMISSIONER
+  ADMIN
+}
+
+enum MembershipStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+  REMOVED
+}
+
+enum GameStatus {
+  UNSCHEDULED
+  SCHEDULED
+  PLAYED
+  FAIR_SIM
+  FORCE_WIN_HOME
+  FORCE_WIN_AWAY
+  ADMIN_REVIEW
+}
+
+enum ImportStatus {
+  QUEUED
+  RUNNING
+  COMPLETE
+  PARTIAL
+  FAILED
+}
+
+enum DatasetStatus {
+  PENDING
+  COMPLETE
+  FAILED
+  SKIPPED
+}
+
+model User {
+  id             String             @id @default(cuid())
+  discordId      String             @unique
+  username       String
+  displayName    String
+  avatarUrl      String?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  sessions       Session[]
+  memberships    LeagueMembership[]
+  createdLeagues League[]           @relation("LeagueCreator")
+  auditEvents    AuditLog[]          @relation("AuditActor")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  lastSeenAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model League {
+  id             String             @id @default(cuid())
+  slug           String             @unique
+  name           String
+  gameType       GameType
+  discordGuildId String?            @unique
+  createdById    String
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  createdBy      User               @relation("LeagueCreator", fields: [createdById], references: [id])
+  memberships    LeagueMembership[]
+  teams          Team[]
+  seasons        Season[]
+  games          Game[]
+  importRuns     ImportRun[]
+  rawExports     RawExport[]
+  auditEvents    AuditLog[]
+  players        Player[]
+  teamSnapshots  TeamSeasonSnapshot[]
+}
+
+model LeagueMembership {
+  id        String           @id @default(cuid())
+  leagueId  String
+  userId    String
+  teamId    String?          @unique
+  role      LeagueRole       @default(COACH)
+  status    MembershipStatus @default(PENDING)
+  joinedAt  DateTime?
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+  league    League           @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  team      Team?            @relation(fields: [teamId], references: [id], onDelete: SetNull)
+
+  @@unique([leagueId, userId])
+  @@index([leagueId, role, status])
+}
+
+model Team {
+  id              String             @id @default(cuid())
+  leagueId        String
+  externalId      String
+  name            String
+  abbreviation    String
+  conference      String
+  division        String
+  primaryColor    String?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  league          League             @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  ownerMembership LeagueMembership?
+  homeGames       Game[]             @relation("HomeTeam")
+  awayGames       Game[]             @relation("AwayTeam")
+  players         Player[]
+  seasonSnapshots TeamSeasonSnapshot[]
+
+  @@unique([leagueId, externalId])
+  @@index([leagueId, conference, division])
+}
+
+model Season {
+  id         String      @id @default(cuid())
+  leagueId   String
+  number     Int
+  label      String
+  isCurrent  Boolean     @default(false)
+  createdAt  DateTime    @default(now())
+  league     League      @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  weeks      Week[]
+  games      Game[]
+  importRuns ImportRun[]
+  rawExports RawExport[]
+  teamSnapshots TeamSeasonSnapshot[]
+
+  @@unique([leagueId, number])
+  @@index([leagueId, isCurrent])
+}
+
+model Week {
+  id         String      @id @default(cuid())
+  seasonId   String
+  number     Int
+  phase      String      @default("REGULAR_SEASON")
+  startsAt   DateTime?
+  advancesAt DateTime?
+  season     Season      @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  games      Game[]
+  importRuns ImportRun[]
+  rawExports RawExport[]
+
+  @@unique([seasonId, number, phase])
+}
+
+model Player {
+  id         String   @id @default(cuid())
+  leagueId   String
+  teamId     String?
+  externalId String
+  name       String
+  position   String
+  overall    Int?
+  devTrait   String?
+  age        Int?
+  attributes Json?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  league     League   @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  team       Team?    @relation(fields: [teamId], references: [id], onDelete: SetNull)
+
+  @@unique([leagueId, externalId])
+  @@index([leagueId, name])
+  @@index([leagueId, position, overall])
+}
+
+model TeamSeasonSnapshot {
+  id               String   @id @default(cuid())
+  leagueId         String
+  seasonId         String
+  teamId           String
+  wins             Int      @default(0)
+  losses           Int      @default(0)
+  ties             Int      @default(0)
+  conferenceWins   Int      @default(0)
+  conferenceLosses Int      @default(0)
+  conferenceTies   Int      @default(0)
+  divisionWins     Int      @default(0)
+  divisionLosses   Int      @default(0)
+  divisionTies     Int      @default(0)
+  pointsFor        Int      @default(0)
+  pointsAgainst    Int      @default(0)
+  turnoverDiff     Int      @default(0)
+  last5Wins        Int      @default(0)
+  last5Losses      Int      @default(0)
+  last5Ties        Int      @default(0)
+  capturedAt       DateTime @default(now())
+  league           League   @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  season           Season   @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  team             Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([seasonId, teamId, capturedAt])
+  @@index([leagueId, seasonId, capturedAt])
+}
+
+model Game {
+  id           String     @id @default(cuid())
+  leagueId     String
+  seasonId     String
+  weekId       String
+  externalId   String
+  homeTeamId   String
+  awayTeamId   String
+  status       GameStatus @default(UNSCHEDULED)
+  scheduledAt  DateTime?
+  homeScore    Int?
+  awayScore    Int?
+  discordThreadId String? @unique
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  league       League     @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  season       Season     @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  week         Week       @relation(fields: [weekId], references: [id], onDelete: Cascade)
+  homeTeam     Team       @relation("HomeTeam", fields: [homeTeamId], references: [id])
+  awayTeam     Team       @relation("AwayTeam", fields: [awayTeamId], references: [id])
+
+  @@unique([leagueId, externalId])
+  @@index([leagueId, seasonId, weekId, status])
+}
+
+model ImportRun {
+  id          String        @id @default(cuid())
+  leagueId    String
+  seasonId    String?
+  weekId      String?
+  status      ImportStatus  @default(QUEUED)
+  source      String
+  startedAt   DateTime?
+  completedAt DateTime?
+  errorMessage String?
+  createdAt   DateTime      @default(now())
+  league      League        @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  season      Season?       @relation(fields: [seasonId], references: [id], onDelete: SetNull)
+  week        Week?         @relation(fields: [weekId], references: [id], onDelete: SetNull)
+  datasets    ImportDataset[]
+  rawExports  RawExport[]
+
+  @@index([leagueId, createdAt])
+}
+
+model ImportDataset {
+  id           String        @id @default(cuid())
+  importRunId  String
+  name         String
+  status       DatasetStatus @default(PENDING)
+  recordCount  Int           @default(0)
+  errorMessage String?
+  completedAt  DateTime?
+  importRun    ImportRun     @relation(fields: [importRunId], references: [id], onDelete: Cascade)
+
+  @@unique([importRunId, name])
+}
+
+model RawExport {
+  id          String    @id @default(cuid())
+  leagueId    String
+  seasonId    String?
+  weekId      String?
+  importRunId String?
+  dataset     String
+  source      String
+  sha256      String
+  storageKey  String
+  payload     Json?
+  createdAt   DateTime  @default(now())
+  league      League    @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  season      Season?   @relation(fields: [seasonId], references: [id], onDelete: SetNull)
+  week        Week?     @relation(fields: [weekId], references: [id], onDelete: SetNull)
+  importRun   ImportRun? @relation(fields: [importRunId], references: [id], onDelete: SetNull)
+
+  @@unique([leagueId, sha256])
+  @@index([leagueId, seasonId, weekId, dataset])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  leagueId   String
+  actorUserId String?
+  action     String
+  entityType String
+  entityId   String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+  league     League   @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  actor      User?    @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([leagueId, createdAt])
+  @@index([entityType, entityId])
+}

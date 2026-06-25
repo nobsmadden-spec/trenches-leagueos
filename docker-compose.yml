@@ -1,0 +1,27 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: leagueos
+      POSTGRES_USER: leagueos
+      POSTGRES_PASSWORD: leagueos
+    ports:
+      - "5432:5432"
+    volumes:
+      - leagueos-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U leagueos -d leagueos"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - leagueos-redis:/data
+
+volumes:
+  leagueos-postgres:
+  leagueos-redis:

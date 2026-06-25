@@ -1,0 +1,65 @@
+{
+  "schemaVersion": "snallabot-export/v1",
+  "source": "snallabot-export/v1",
+  "season": 3,
+  "weekIndex": 10,
+  "teamsExport": {
+    "leagueTeamInfoList": [
+      {
+        "teamId": 1,
+        "displayName": "Buffalo Bills",
+        "abbrName": "BUF",
+        "cityName": "Buffalo",
+        "nickName": "Bills",
+        "divName": "East",
+        "primaryColor": 255
+      }
+    ]
+  },
+  "standingsExport": {
+    "teamStandingInfoList": [
+      {
+        "teamId": 1,
+        "teamName": "Bills",
+        "conferenceName": "AFC",
+        "divisionName": "East",
+        "totalWins": 8,
+        "totalLosses": 2,
+        "totalTies": 0,
+        "ptsFor": 286,
+        "ptsAgainst": 201,
+        "tODiff": 6
+      }
+    ]
+  },
+  "schedulesExport": {
+    "gameScheduleInfoList": [
+      {
+        "scheduleId": 99,
+        "weekIndex": 10,
+        "awayTeamId": 1,
+        "homeTeamId": 1,
+        "awayScore": 24,
+        "homeScore": 31,
+        "status": 3
+      }
+    ]
+  },
+  "rosterExports": [
+    {
+      "rosterInfoList": [
+        {
+          "rosterId": 17,
+          "teamId": 1,
+          "firstName": "Josh",
+          "lastName": "Allen",
+          "position": "QB",
+          "playerBestOvr": 95,
+          "devTrait": 3,
+          "age": 30,
+          "throwPowerRating": 99
+        }
+      ]
+    }
+  ]
+}
