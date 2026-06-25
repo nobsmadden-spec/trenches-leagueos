@@ -22,7 +22,7 @@ await loadEnvFile();
 
 const webRoot = fileURLToPath(new URL("../../web/public", import.meta.url));
 const port = Number(process.env.PORT || 3000);
-const host = process.env.HOST || "127.0.0.1";
+const host = process.env.HOST || "0.0.0.0";
 const mime = { ".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".svg": "image/svg+xml" };
 const maxExportBytes = Number(process.env.MAX_EXPORT_URL_BYTES || 5_000_000);
 const receiverAttempts = [];
