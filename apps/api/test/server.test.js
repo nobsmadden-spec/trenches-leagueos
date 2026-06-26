@@ -6,13 +6,19 @@ const { requestHandler } = await import("../src/server.js");
 
 async function request(path, { method = "GET", headers = {}, body } = {}) {
   let status;
+  let responseHeaders = {};
   let responseBody = "";
   const response = {
-    writeHead(code) { status = code; },
+    writeHead(code, headers = {}) { status = code; responseHeaders = headers; },
     end(chunk = "") { responseBody += chunk; }
   };
   await requestHandler({ method, url: path, headers: { host: "localhost", ...headers }, body }, response);
-  return { status, json: JSON.parse(responseBody) };
+  return {
+    status,
+    headers: responseHeaders,
+    body: responseBody,
+    get json() { return JSON.parse(responseBody); }
+  };
 }
 
 const get = (path, options) => request(path, options);
@@ -39,6 +45,19 @@ test("health and league summary APIs respond", async () => {
   assert.equal(team.json.owner, "Coach Devin");
   const me = await get("/api/me");
   assert.equal(me.json.authenticated, true);
+});
+
+test("static assets are served with their real content types", async () => {
+  const styles = await request("/styles.css");
+  assert.equal(styles.status, 200);
+  assert.match(styles.headers["content-type"], /text\/css/);
+  assert.match(styles.body, /\.view/);
+  assert.doesNotMatch(styles.body.slice(0, 100), /<!doctype html>/i);
+
+  const script = await request("/app.js");
+  assert.equal(script.status, 200);
+  assert.match(script.headers["content-type"], /text\/javascript/);
+  assert.match(script.body, /function setView/);
 });
 
 test("production-style requests cannot claim commissioner access by query string", async () => {

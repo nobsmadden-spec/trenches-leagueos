@@ -102,34 +102,43 @@ function actionRows(actions) {
 }
 
 function renderSync(target, sync) {
-  target.innerHTML = sync.datasets.map((dataset) => `<div class="dataset-row"><span class="dataset-check">✓</span><span>${dataset.name}</span><strong>${dataset.records.toLocaleString()}</strong></div>`).join("");
+  const datasets = sync?.datasets || [];
+  target.innerHTML = datasets.length
+    ? datasets.map((dataset) => `<div class="dataset-row"><span class="dataset-check">✓</span><span>${dataset.name}</span><strong>${Number(dataset.records || 0).toLocaleString()}</strong></div>`).join("")
+    : `<p class="muted">No imported datasets have reported yet.</p>`;
 }
 
 function renderWorkspace(nextWorkspace) {
   workspace = nextWorkspace;
+  if (!workspace) return;
   $("#action-eyebrow").textContent = currentRole === "coach" ? "Coach workspace" : "Commissioner workspace";
-  $("#action-count").textContent = workspace.actions.length;
-  $("#action-queue").innerHTML = actionRows(workspace.actions);
-  $("#sync-state").textContent = workspace.syncHealth.status;
-  $("#sync-state").className = `health-badge ${workspace.syncHealth.status}`;
-  const updated = new Date(workspace.syncHealth.lastCompletedAt);
-  $("#sync-time").textContent = `Last complete import ${updated.toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}`;
+  $("#action-count").textContent = workspace.actions?.length || 0;
+  $("#action-queue").innerHTML = workspace.actions?.length ? actionRows(workspace.actions) : `<p class="muted">Nothing needs attention right now.</p>`;
+  $("#sync-state").textContent = workspace.syncHealth?.status || "unknown";
+  $("#sync-state").className = `health-badge ${workspace.syncHealth?.status || "unknown"}`;
+  const updated = workspace.syncHealth?.lastCompletedAt ? new Date(workspace.syncHealth.lastCompletedAt) : null;
+  $("#sync-time").textContent = updated && !Number.isNaN(updated.valueOf()) ? `Last complete import ${updated.toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}` : "Waiting for the first completed import.";
   renderSync($("#sync-datasets"), workspace.syncHealth);
 }
 
 function renderDashboard(league) {
   $("#season-label").textContent = `${league.gameType} · ${league.season} SEASON`;
   $("#week-number").textContent = `WEEK ${league.week}`;
-  $("#advance-at").textContent = league.advanceAt;
+  $("#advance-at").textContent = league.advanceAt || "Advance time not set";
   const game = league.featuredGame;
   const featured = $("#featured-game");
   featured.classList.remove("skeleton");
-  featured.style.setProperty("--away-color", game.awayTeam.color);
-  featured.style.setProperty("--home-color", game.homeTeam.color);
-  featured.innerHTML = `${gameTeam(game.awayTeam)}<div class="versus"><p>${game.scheduledAt}</p><strong>VS</strong><span>Featured matchup</span></div>${gameTeam(game.homeTeam)}`;
-  $("#recent-finals").innerHTML = league.recentFinals.map((final) => `<div class="score-row"><div class="score-teams"><div class="score-team"><span class="mini-badge" style="--team-color:${final.awayTeam.color}">${final.awayTeam.abbr}</span>${final.awayTeam.name}</div><div class="score-team"><span class="mini-badge" style="--team-color:${final.homeTeam.color}">${final.homeTeam.abbr}</span>${final.homeTeam.name}</div></div><div class="score-values"><span>${final.awayScore}</span><span>${final.homeScore}</span></div></div>`).join("");
-  $("#power-rankings").innerHTML = league.powerRankings.map((team) => `<li><div class="rank-team"><strong>${team.name}</strong><small>${record(team)} · ${team.pointsFor - team.pointsAgainst >= 0 ? "+" : ""}${team.pointsFor - team.pointsAgainst} DIFF</small></div><span>${team.powerScore}</span></li>`).join("");
-  $("#playoff-picture").innerHTML = Object.entries(league.playoffRace).map(([conference, race]) => `<div class="conference"><h3>${conference}</h3>${seedRows(race.playoff)}<p class="hunt-label">IN THE HUNT</p>${seedRows(race.inTheHunt)}</div>`).join("");
+  if (game?.awayTeam && game?.homeTeam) {
+    featured.style.setProperty("--away-color", game.awayTeam.color);
+    featured.style.setProperty("--home-color", game.homeTeam.color);
+    featured.innerHTML = `${gameTeam(game.awayTeam)}<div class="versus"><p>${game.scheduledAt || "Time TBD"}</p><strong>VS</strong><span>Featured matchup</span></div>${gameTeam(game.homeTeam)}`;
+  } else {
+    featured.innerHTML = `<p class="empty">Featured matchup will appear after schedule data imports.</p>`;
+  }
+  const finals = league.recentFinals || [];
+  $("#recent-finals").innerHTML = finals.length ? finals.map((final) => `<div class="score-row"><div class="score-teams"><div class="score-team"><span class="mini-badge" style="--team-color:${final.awayTeam.color}">${final.awayTeam.abbr}</span>${final.awayTeam.name}</div><div class="score-team"><span class="mini-badge" style="--team-color:${final.homeTeam.color}">${final.homeTeam.abbr}</span>${final.homeTeam.name}</div></div><div class="score-values"><span>${final.awayScore}</span><span>${final.homeScore}</span></div></div>`).join("") : `<p class="muted">Final scores will appear after completed games import.</p>`;
+  $("#power-rankings").innerHTML = (league.powerRankings || []).map((team) => `<li><div class="rank-team"><strong>${team.name}</strong><small>${record(team)} · ${team.pointsFor - team.pointsAgainst >= 0 ? "+" : ""}${team.pointsFor - team.pointsAgainst} DIFF</small></div><span>${team.powerScore}</span></li>`).join("");
+  $("#playoff-picture").innerHTML = Object.entries(league.playoffRace || {}).map(([conference, race]) => `<div class="conference"><h3>${conference}</h3>${seedRows(race.playoff)}<p class="hunt-label">IN THE HUNT</p>${seedRows(race.inTheHunt)}</div>`).join("");
   renderWorkspace(league.workspace);
 }
 
@@ -141,7 +150,7 @@ async function loadStandings() {
 
 async function loadPlayers(query = "") {
   const players = await api(`/players?q=${encodeURIComponent(query)}`);
-  $("#player-results").innerHTML = players.length ? players.map((player) => `<article class="player-card" data-position="${player.position}"><div class="player-top"><div><h3>${player.name}</h3><p>${player.team.name}</p></div><div class="ovr">${player.overall}<small>OVR</small></div></div><div class="player-meta"><span>${player.position}</span><span>${player.devTrait}</span><span>AGE ${player.age}</span></div><div class="player-stat"><span>${player.statLabel}</span><strong>${player.statValue.toLocaleString()}</strong></div></article>`).join("") : `<p class="empty">No players match “${query}”.</p>`;
+  $("#player-results").innerHTML = players.length ? players.map((player) => `<article class="player-card" data-position="${player.position}"><div class="player-top"><div><h3>${player.name}</h3><p>${player.team?.name || "Free Agent"}</p></div><div class="ovr">${player.overall ?? "--"}<small>OVR</small></div></div><div class="player-meta"><span>${player.position || "POS"}</span><span>${player.devTrait || "Normal"}</span><span>AGE ${player.age ?? "--"}</span></div><div class="player-stat"><span>${player.statLabel || "Overall"}</span><strong>${Number(player.statValue || player.overall || 0).toLocaleString()}</strong></div></article>`).join("") : `<p class="empty">No players match “${query}”.</p>`;
 }
 
 async function loadTeam(nextTeamId = selectedTeamId) {
@@ -151,6 +160,10 @@ async function loadTeam(nextTeamId = selectedTeamId) {
   const picker = $("#team-picker");
   picker.innerHTML = teamCache.map((team) => `<option value="${team.id}" ${team.id === teamId ? "selected" : ""}>${team.abbr} · ${team.name}</option>`).join("");
   const team = await api(`/teams/${teamId}`);
+  if (!team) {
+    $("#team-command").innerHTML = `<p class="empty">Team profile is unavailable.</p>`;
+    return;
+  }
   const opponentGame = team.schedule.find((game) => game.status !== "played");
   const opponent = opponentGame && (opponentGame.homeTeamId === team.id ? opponentGame.awayTeam : opponentGame.homeTeam);
   const pointDiff = team.pointsFor - team.pointsAgainst;
@@ -162,8 +175,8 @@ async function loadTeam(nextTeamId = selectedTeamId) {
     const isHome = game.homeTeamId === team.id;
     const opponentTeam = isHome ? game.awayTeam : game.homeTeam;
     const score = game.status === "played" ? `${game.awayScore ?? "-"}-${game.homeScore ?? "-"}` : game.scheduledAt || "Not scheduled";
-    return `<div class="schedule-line"><span>W${game.week || "--"}</span><strong>${isHome ? "vs." : "at"} ${opponentTeam.name}</strong><b>${score}</b></div>`;
-  }).join("") : `<p class="muted">Schedule arrives with the league export.</p>`}</div><button class="primary-button">Open Game Thread</button></section><section class="panel"><div class="panel-heading"><div><span>Roster room</span><h2>Key Personnel</h2></div><span class="muted">Top 12 by OVR</span></div>${roster.length ? roster.slice(0, 12).map((player) => `<div class="roster-line"><span>${player.position}</span><strong>${player.name}</strong><b>${player.overall ?? "--"}</b></div>`).join("") : `<p class="muted">Full roster arrives with the EA importer.</p>`}<div class="draft-picks">${team.draftPicks.map((pick) => `<span>${pick}</span>`).join("")}</div></section></div>`;
+    return `<div class="schedule-line"><span>W${game.week || "--"}</span><strong>${isHome ? "vs." : "at"} ${opponentTeam?.name || "TBD"}</strong><b>${score}</b></div>`;
+  }).join("") : `<p class="muted">Schedule arrives with the league export.</p>`}</div><button class="primary-button">Open Game Thread</button></section><section class="panel"><div class="panel-heading"><div><span>Roster room</span><h2>Key Personnel</h2></div><span class="muted">Top 12 by OVR</span></div>${roster.length ? roster.slice(0, 12).map((player) => `<div class="roster-line"><span>${player.position}</span><strong>${player.name}</strong><b>${player.overall ?? "--"}</b></div>`).join("") : `<p class="muted">Full roster arrives with the EA importer.</p>`}<div class="draft-picks">${(team.draftPicks || []).map((pick) => `<span>${pick}</span>`).join("")}</div></section></div>`;
 }
 
 $("#team-picker").addEventListener("change", (event) => loadTeam(event.target.value));
