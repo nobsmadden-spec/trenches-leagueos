@@ -118,7 +118,7 @@ test("Prisma import history returns recent runs with datasets and raw exports", 
 
 
 test("Prisma import recording writes datasets, raw exports, and audit metadata", async () => {
-  const calls = { datasets: [], rawExports: [], audit: null };
+  const calls = { datasets: [], rawExports: [], audit: null, transactionOptions: null };
   const transaction = {
     season: { upsert: async () => ({ id: "season-1" }) },
     week: { upsert: async () => ({ id: "week-1" }) },
@@ -141,7 +141,7 @@ test("Prisma import recording writes datasets, raw exports, and audit metadata",
     rawExport: { upsert: async (entry) => { calls.rawExports.push(entry); } },
     auditLog: { create: async ({ data }) => { calls.audit = data; } }
   };
-  const repository = createPrismaRepository({ $transaction: async (operation) => operation(transaction) });
+  const repository = createPrismaRepository({ $transaction: async (operation, options) => { calls.transactionOptions = options; return operation(transaction); } });
   const run = await repository.recordImportRun(
     { id: "the-trenches", databaseId: "league-1", season: 2, week: 11 },
     {
@@ -160,6 +160,7 @@ test("Prisma import recording writes datasets, raw exports, and audit metadata",
   assert.match(calls.rawExports[0].create.storageKey, /raw-exports\/the-trenches/);
   assert.equal(calls.audit.action, "import.recorded");
   assert.equal(calls.audit.actorUserId, "user-1");
+  assert.equal(calls.transactionOptions.timeout, 30000);
 });
 
 test("Prisma import recording applies normalized teams, players, standings, and games", async () => {

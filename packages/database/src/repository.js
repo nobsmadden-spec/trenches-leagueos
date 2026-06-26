@@ -457,7 +457,7 @@ export function createPrismaRepository(client = prismaClient()) {
           where: { id: created.id },
           include: { league: true, datasets: true, rawExports: true }
         });
-      });
+      }, { maxWait: 10000, timeout: 30000 });
       return normalizeImportRun(run);
     },
     async upsertDiscordUser(profile) {
