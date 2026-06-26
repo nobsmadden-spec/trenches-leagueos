@@ -566,6 +566,39 @@ h1, h2, strong { font-family: "Barlow Condensed", sans-serif; text-transform: up
   padding: 11px 13px;
   font-size: 11px;
 }
+.recognition-breakdown {
+  border: 1px solid var(--line);
+  background: rgba(8,11,16,.35);
+  padding: 16px;
+}
+.recognition-breakdown h3 {
+  margin: 0 0 12px;
+  font-size: 18px;
+}
+.recognition-breakdown-row {
+  display: grid;
+  grid-template-columns: 90px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  border-top: 1px solid var(--line);
+  padding: 11px 0;
+}
+.recognition-breakdown-row span {
+  color: var(--muted);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: .12em;
+}
+.recognition-breakdown-row strong {
+  display: block;
+  font: 800 13px Inter, sans-serif;
+}
+.recognition-breakdown-row small {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+.recognition-breakdown-row b { color: var(--gold); }
 .recognition-columns {
   display: grid;
   grid-template-columns: 1.2fr .8fr;
@@ -1282,6 +1315,8 @@ footer {
   .thread-team { grid-template-columns: 1fr; }
   .strike-summary, .strike-columns { grid-template-columns: 1fr; }
   .recognition-panel { margin-top: -26px; }
+  .recognition-breakdown-row { grid-template-columns: 1fr auto; }
+  .recognition-breakdown-row span { grid-column: 1/-1; }
   .recognition-leader { grid-template-columns: 1fr auto; }
   .recognition-leader span { grid-column: 1/-1; }
   .trade-attention-card { align-items: flex-start; flex-direction: column; }

@@ -61,6 +61,7 @@ test("health and league summary APIs respond", async () => {
   const recognition = await get("/api/leagues/the-trenches/recognition");
   assert.equal(recognition.status, 200);
   assert.ok(recognition.json.leaders.length > 0);
+  assert.ok(recognition.json.breakdown.some((item) => item.lane === "Impact"));
   assert.ok(recognition.json.perks.some((perk) => perk.name === "Offensive Game Plan"));
   const me = await get("/api/me");
   assert.equal(me.json.authenticated, true);
@@ -142,6 +143,7 @@ test("coaches can activate recognition perks", async () => {
   assert.equal(activated.json.balances.impact, 5);
   assert.ok(activated.json.activePerks.some((perk) => perk.id === "offensive-plan"));
   assert.equal(activated.json.perks.find((perk) => perk.id === "offensive-plan").status, "active");
+  assert.ok(activated.json.breakdown.some((item) => item.points < 0 && item.label.includes("Spent")));
 });
 
 test("commissioners can record import runs and update sync health", async () => {

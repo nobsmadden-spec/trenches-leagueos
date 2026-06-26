@@ -56,6 +56,11 @@ export const demoLeague = {
     week: 11,
     phase: "Late Regular Season",
     balances: { activity: 9, impact: 11, legacy: 6 },
+    breakdown: [
+      { lane: "Activity", label: "Weekly activity bank", points: 9, detail: "Posts, streams, and game thread responses this week." },
+      { lane: "Impact", label: "Performance and league office", points: 11, detail: "Featured wins, imports, and strategy-tool usage." },
+      { lane: "Legacy", label: "Long-term standing", points: 6, detail: "History, rivalry moments, and league participation." }
+    ],
     leaders: [
       { lane: "Activity", name: "KC Chiefs", points: 17, detail: "Posts, streams, and game thread response" },
       { lane: "Impact", name: "Coach Devin", points: 38, detail: "Featured wins and league office usage" },

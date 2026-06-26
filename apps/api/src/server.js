@@ -417,6 +417,11 @@ function baseRecognitionFor(league, identity) {
     week: league.week,
     phase: Number(league.week || 0) >= 10 ? "Late Regular Season" : "Regular Season",
     balances: { activity, impact, legacy },
+    breakdown: [
+      { lane: "Activity", label: "Game thread activity", points: activity, detail: `${playedGames.length} completed game(s), ${openGames.length} open matchup(s).` },
+      { lane: "Impact", label: "Team performance", points: impact, detail: `${wins}-${losses} record, ${pointDiff >= 0 ? "+" : ""}${pointDiff} point differential.` },
+      { lane: "Legacy", label: "League standing", points: legacy, detail: `${league.teams.length} teams tracked, ${wins} win(s) banked.` }
+    ],
     leaders: [
       { lane: "Activity", name: best.name || "League leader", points: Math.max(0, Number(best.wins || 0) * 2 - Number(best.losses || 0)), detail: "Generated from current record until recognition events are recorded." },
       { lane: "Impact", name: challenger.name || "Contender", points: Math.max(0, Number(challenger.pointsFor || 0) - Number(challenger.pointsAgainst || 0)), detail: "Point differential snapshot from imported standings." },
@@ -450,6 +455,15 @@ function recognitionFor(league, identity, savedActivations) {
     balances[lane] = Math.max(0, Number(balances[lane] || 0) - Number(activation.cost || 0));
   }
   base.balances = balances;
+  base.breakdown = [
+    ...(base.breakdown || []),
+    ...activations.map((activation) => ({
+      lane: activation.lane || "Recognition",
+      label: `Spent: ${activation.name}`,
+      points: -Number(activation.cost || 0),
+      detail: "Activated for the current league week."
+    }))
+  ];
   base.activePerks = activations;
   return base;
 }
