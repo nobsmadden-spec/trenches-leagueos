@@ -153,6 +153,88 @@ test("Prisma stat leaders read the latest raw Snallabot stat exports", async () 
   assert.equal(leaders[0].leaders[0].value, 410);
 });
 
+test("Prisma trade center persists proposals and status updates", async () => {
+  const calls = { createdTrade: null, audit: [] };
+  const transaction = {
+    trade: {
+      findFirst: async ({ where, select }) => {
+        calls.findTrade = { where, select };
+        return { id: "trade-1" };
+      },
+      create: async ({ data, include }) => {
+        calls.createdTrade = { data, include };
+        return {
+          id: "trade-1",
+          leagueId: data.leagueId,
+          teamAId: data.teamAId,
+          teamBId: data.teamBId,
+          submittedById: data.submittedById,
+          status: data.status,
+          votesFor: data.votesFor,
+          votesNeeded: data.votesNeeded,
+          submittedAt: new Date("2026-06-26T12:00:00Z"),
+          assets: data.assets.create.map((asset, index) => ({ id: `asset-${index}`, ...asset }))
+        };
+      },
+      update: async ({ data }) => ({
+        id: "trade-1",
+        teamAId: "team-buf",
+        teamBId: "team-dal",
+        submittedById: "user-1",
+        status: data.status,
+        votesFor: data.votesFor || 0,
+        votesNeeded: 3,
+        submittedAt: new Date("2026-06-26T12:00:00Z"),
+        assets: []
+      })
+    },
+    auditLog: { create: async ({ data }) => { calls.audit.push(data); } }
+  };
+  const repository = createPrismaRepository({ $transaction: async (operation) => operation(transaction) });
+  const league = { databaseId: "league-1", teams: [{ id: "team-buf", externalId: "buf" }, { id: "team-dal", externalId: "dal" }] };
+  const created = await repository.createTradeProposal(league, {
+    teamA: "buf",
+    teamB: "dal",
+    teamAAssets: [{ label: "2027 1st", value: 250, type: "pick" }],
+    teamBAssets: [{ label: "RE Micah Parsons", value: 518, type: "player" }]
+  }, "user-1");
+
+  assert.equal(created.status, "negotiating");
+  assert.equal(created.teamA, "team-buf");
+  assert.equal(created.teamAAssets[0].label, "2027 1st");
+  assert.equal(calls.createdTrade.data.assets.create.length, 2);
+  assert.equal(calls.audit[0].action, "trade.created");
+
+  const updated = await repository.updateTradeStatus(league, "trade-1", "approved", "user-1");
+  assert.equal(updated.status, "approved");
+  assert.equal(updated.votesFor, 3);
+  assert.deepEqual(calls.findTrade.where, { id: "trade-1", leagueId: "league-1" });
+  assert.equal(calls.audit[1].action, "trade.status_updated");
+});
+
+test("Prisma trade center lists durable trades with assets", async () => {
+  const repository = createPrismaRepository({
+    trade: {
+      findMany: async () => [{
+        id: "trade-1",
+        teamAId: "team-buf",
+        teamBId: "team-dal",
+        submittedById: "user-1",
+        status: "COMMITTEE_REVIEW",
+        votesFor: 1,
+        votesNeeded: 3,
+        submittedAt: new Date("2026-06-26T12:00:00Z"),
+        assets: [
+          { side: "TEAM_A", label: "2027 1st", value: 250, type: "pick" },
+          { side: "TEAM_B", label: "RE Micah Parsons", value: 518, type: "player" }
+        ]
+      }]
+    }
+  });
+  const trades = await repository.listTrades({ databaseId: "league-1" });
+  assert.equal(trades[0].status, "committee_review");
+  assert.equal(trades[0].teamBAssets[0].value, 518);
+});
 
 test("Prisma import recording writes datasets, raw exports, and audit metadata", async () => {
   const calls = { datasets: [], rawExports: [], audit: null, transactionOptions: null };

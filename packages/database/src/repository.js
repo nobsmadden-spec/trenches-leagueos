@@ -127,6 +127,34 @@ function normalizeImportRun(run) {
   };
 }
 
+function normalizeTrade(row) {
+  const assets = row.assets || [];
+  const teamAAssets = assets.filter((asset) => asset.side === "TEAM_A").map((asset) => ({
+    label: asset.label,
+    value: asset.value,
+    type: asset.type,
+    metadata: asset.metadata || null
+  }));
+  const teamBAssets = assets.filter((asset) => asset.side === "TEAM_B").map((asset) => ({
+    label: asset.label,
+    value: asset.value,
+    type: asset.type,
+    metadata: asset.metadata || null
+  }));
+  return {
+    id: row.id,
+    status: lower(row.status),
+    submittedAt: row.submittedAt?.toISOString?.() || row.submittedAt,
+    submittedBy: row.submittedById || null,
+    teamA: row.teamAId,
+    teamB: row.teamBId,
+    teamAAssets,
+    teamBAssets,
+    votesFor: row.votesFor,
+    votesNeeded: row.votesNeeded
+  };
+}
+
 const gameStatuses = new Set(["UNSCHEDULED", "SCHEDULED", "PLAYED", "FAIR_SIM", "FORCE_WIN_HOME", "FORCE_WIN_AWAY", "ADMIN_REVIEW"]);
 
 function datasetPayload(datasets, name) {
@@ -481,6 +509,71 @@ export function createPrismaRepository(client = prismaClient()) {
       ]);
       const leaders = buildStatLeaders({ rawExports, players, teams: league.teams, limit });
       return leaders.length ? leaders : fallbackPlayerLeaders(league, limit);
+    },
+    async listTrades(league) {
+      const trades = await client.trade.findMany({
+        where: { leagueId: league.databaseId },
+        orderBy: { submittedAt: "desc" },
+        include: { assets: true }
+      });
+      return trades.map(normalizeTrade);
+    },
+    async createTradeProposal(league, input, actorUserId) {
+      const findTeam = (id) => league.teams.find((team) => team.id === id || team.externalId === id);
+      const teamA = findTeam(input.teamA);
+      const teamB = findTeam(input.teamB);
+      if (!teamA || !teamB) throw new Error("Choose two valid teams.");
+      if (teamA.id === teamB.id) throw new Error("A team cannot trade with itself.");
+      const teamAAssets = input.teamAAssets || [];
+      const teamBAssets = input.teamBAssets || [];
+      if (!teamAAssets.length || !teamBAssets.length) throw new Error("Each side needs at least one asset.");
+      const trade = await client.$transaction(async (transaction) => {
+        const created = await transaction.trade.create({
+          data: {
+            leagueId: league.databaseId,
+            teamAId: teamA.id,
+            teamBId: teamB.id,
+            submittedById: actorUserId || null,
+            status: "NEGOTIATING",
+            votesFor: 0,
+            votesNeeded: 3,
+            assets: {
+              create: [
+                ...teamAAssets.map((asset) => ({ side: "TEAM_A", label: asset.label, value: Number(asset.value || 0), type: asset.type || "asset", metadata: asset.metadata || undefined })),
+                ...teamBAssets.map((asset) => ({ side: "TEAM_B", label: asset.label, value: Number(asset.value || 0), type: asset.type || "asset", metadata: asset.metadata || undefined }))
+              ]
+            }
+          },
+          include: { assets: true }
+        });
+        await transaction.auditLog.create({
+          data: { leagueId: league.databaseId, actorUserId, action: "trade.created", entityType: "Trade", entityId: created.id, metadata: { teamA: teamA.id, teamB: teamB.id } }
+        });
+        return created;
+      });
+      return normalizeTrade(trade);
+    },
+    async updateTradeStatus(league, tradeId, nextStatus, actorUserId) {
+      const status = nextStatus.toUpperCase();
+      const data = { status };
+      if (status === "APPROVED") data.votesFor = 3;
+      const trade = await client.$transaction(async (transaction) => {
+        const existing = await transaction.trade.findFirst({
+          where: { id: tradeId, leagueId: league.databaseId },
+          select: { id: true }
+        });
+        if (!existing) return null;
+        const updated = await transaction.trade.update({
+          where: { id: existing.id },
+          data,
+          include: { assets: true }
+        });
+        await transaction.auditLog.create({
+          data: { leagueId: league.databaseId, actorUserId, action: "trade.status_updated", entityType: "Trade", entityId: tradeId, metadata: { status } }
+        });
+        return updated;
+      });
+      return trade ? normalizeTrade(trade) : null;
     },
     async updateMembership(league, membershipId, changes, actorUserId) {
       const data = {};

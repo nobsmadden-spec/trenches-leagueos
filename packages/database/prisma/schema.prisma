@@ -50,6 +50,18 @@ enum DatasetStatus {
   SKIPPED
 }
 
+enum TradeStatus {
+  NEGOTIATING
+  COMMITTEE_REVIEW
+  APPROVED
+  DENIED
+}
+
+enum TradeSide {
+  TEAM_A
+  TEAM_B
+}
+
 model User {
   id             String             @id @default(cuid())
   discordId      String             @unique
@@ -62,6 +74,7 @@ model User {
   memberships    LeagueMembership[]
   createdLeagues League[]           @relation("LeagueCreator")
   auditEvents    AuditLog[]          @relation("AuditActor")
+  submittedTrades Trade[]
 }
 
 model Session {
@@ -95,6 +108,7 @@ model League {
   auditEvents    AuditLog[]
   players        Player[]
   teamSnapshots  TeamSeasonSnapshot[]
+  trades         Trade[]
 }
 
 model LeagueMembership {
@@ -132,6 +146,8 @@ model Team {
   awayGames       Game[]             @relation("AwayTeam")
   players         Player[]
   seasonSnapshots TeamSeasonSnapshot[]
+  tradesAsTeamA   Trade[]            @relation("TradeTeamA")
+  tradesAsTeamB   Trade[]            @relation("TradeTeamB")
 
   @@unique([leagueId, externalId])
   @@index([leagueId, conference, division])
@@ -243,6 +259,42 @@ model Game {
 
   @@unique([leagueId, externalId])
   @@index([leagueId, seasonId, weekId, status])
+}
+
+model Trade {
+  id          String      @id @default(cuid())
+  leagueId    String
+  teamAId     String
+  teamBId     String
+  submittedById String?
+  status      TradeStatus @default(NEGOTIATING)
+  votesFor    Int         @default(0)
+  votesNeeded Int         @default(3)
+  submittedAt DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  league      League      @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  teamA       Team        @relation("TradeTeamA", fields: [teamAId], references: [id])
+  teamB       Team        @relation("TradeTeamB", fields: [teamBId], references: [id])
+  submittedBy User?       @relation(fields: [submittedById], references: [id], onDelete: SetNull)
+  assets      TradeAsset[]
+
+  @@index([leagueId, status, submittedAt])
+  @@index([teamAId])
+  @@index([teamBId])
+}
+
+model TradeAsset {
+  id        String    @id @default(cuid())
+  tradeId   String
+  side      TradeSide
+  label     String
+  value     Int       @default(0)
+  type      String    @default("asset")
+  metadata  Json?
+  createdAt DateTime  @default(now())
+  trade     Trade     @relation(fields: [tradeId], references: [id], onDelete: Cascade)
+
+  @@index([tradeId, side])
 }
 
 model ImportRun {

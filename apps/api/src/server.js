@@ -543,7 +543,10 @@ async function leagueRoute(request, response, url, identity) {
   if (resource === "trades" && request.method === "POST") {
     if (!hasLeagueRole(identity, league.id, "coach")) return sendJson(response, identity ? 403 : 401, { error: "League membership required" }) ?? true;
     try {
-      const trade = createTradeProposal(league, await readJson(request), identity);
+      const body = await readJson(request);
+      const trade = repository.createTradeProposal
+        ? await repository.createTradeProposal(league, body, identity.id)
+        : createTradeProposal(league, body, identity);
       return sendJson(response, 201, enrichTrade(league, trade)) ?? true;
     } catch (error) {
       return sendJson(response, 400, { error: "Unable to draft trade", detail: error.message }) ?? true;
@@ -556,11 +559,16 @@ async function leagueRoute(request, response, url, identity) {
     const statusByAction = { approve: "committee_review", deny: "denied", committee_approve: "approved", committee_deny: "denied" };
     const nextStatus = statusByAction[body.action];
     if (!nextStatus) return sendJson(response, 400, { error: "Unsupported trade action" }) ?? true;
-    const trade = updateTradeStatus(league, tradeId, nextStatus);
+    const trade = repository.updateTradeStatus
+      ? await repository.updateTradeStatus(league, tradeId, nextStatus, identity.id)
+      : updateTradeStatus(league, tradeId, nextStatus);
     if (!trade) return sendJson(response, 404, { error: "Trade not found" }) ?? true;
     return sendJson(response, 200, enrichTrade(league, trade)) ?? true;
   }
-  if (resource === "trades") return sendJson(response, 200, tradesForLeague(league).map((trade) => enrichTrade(league, trade))) ?? true;
+  if (resource === "trades") {
+    const trades = repository.listTrades ? await repository.listTrades(league) : tradesForLeague(league);
+    return sendJson(response, 200, trades.map((trade) => enrichTrade(league, trade))) ?? true;
+  }
   if (resource === "trade-assets") return sendJson(response, 200, tradeAssetBoard(league)) ?? true;
   if (resource === "media") return sendJson(response, 200, league.media || []) ?? true;
   if (resource === "standings") return sendJson(response, 200, standingsByDivision(league.teams)) ?? true;
