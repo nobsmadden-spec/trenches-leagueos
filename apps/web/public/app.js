@@ -5,6 +5,7 @@ const formatStat = (value) => Number.isInteger(value) ? value.toLocaleString() :
 let currentRole = "coach";
 let workspace;
 let tradeCache = [];
+let tradeAssets = [];
 let teamCache = [];
 let matchupCache = [];
 let matchupFilter = "all";
@@ -276,13 +277,54 @@ $("#thread-close").addEventListener("click", () => $("#game-thread-preview").cla
 
 function renderTrades(filter = "all") {
   const visible = tradeCache.filter((trade) => filter === "all" || (filter === "committee" ? trade.status === "committee_review" : filter === "completed" ? trade.status === "approved" : trade.status === filter));
-  $("#trade-list").innerHTML = visible.map((trade) => `<article class="trade-card"><div class="trade-card-head"><span class="trade-status ${trade.status}">${trade.status.replaceAll("_", " ")}</span><small>${new Date(trade.submittedAt).toLocaleDateString()}</small></div><div class="trade-sides"><div><strong>${trade.teamA.name}</strong>${trade.teamAAssets.map((asset) => `<span>${asset}</span>`).join("")}</div><div class="trade-swap">⇄</div><div><strong>${trade.teamB.name}</strong>${trade.teamBAssets.map((asset) => `<span>${asset}</span>`).join("")}</div></div><div class="vote-progress"><span>Committee votes</span><strong>${trade.votesFor}/${trade.votesNeeded}</strong></div></article>`).join("") || `<p class="empty">No trades in this stage.</p>`;
+  $("#trade-list").innerHTML = visible.map((trade) => {
+    const check = trade.valueCheck || {};
+    return `<article class="trade-card"><div class="trade-card-head"><span class="trade-status ${trade.status}">${trade.status.replaceAll("_", " ")}</span><small>${new Date(trade.submittedAt).toLocaleDateString()}</small></div><div class="trade-sides"><div><strong>${trade.teamA.name}</strong>${trade.teamAAssets.map((asset) => `<span>${asset.label || asset} <b>${asset.value || 0}</b></span>`).join("")}<em>Total ${check.teamATotal || 0}</em></div><div class="trade-swap">⇄</div><div><strong>${trade.teamB.name}</strong>${trade.teamBAssets.map((asset) => `<span>${asset.label || asset} <b>${asset.value || 0}</b></span>`).join("")}<em>Total ${check.teamBTotal || 0}</em></div></div><div class="trade-value-check ${check.withinLimit ? "approved" : "denied"}"><span>Value gap ${check.gap ?? "--"} / limit ${check.limit || 50}</span><strong>${check.withinLimit ? "Within Limit" : "Committee Flag"}</strong></div><div class="vote-progress"><span>Committee votes</span><strong>${trade.votesFor}/${trade.votesNeeded}</strong></div></article>`;
+  }).join("") || `<p class="empty">No trades in this stage.</p>`;
 }
 
 async function loadTrades() {
   if (!tradeCache.length) tradeCache = await api("/trades");
+  if (!tradeAssets.length) tradeAssets = await api("/trade-assets");
+  renderTradeBuilder();
   renderTrades();
 }
+
+function selectedAssets(selector) {
+  return [...$(selector).selectedOptions].map((option) => ({ label: option.textContent.replace(/\s+·\s+\d+$/, ""), value: Number(option.value || 0) }));
+}
+
+function renderAssetOptions(select, teamId) {
+  const board = tradeAssets.find((entry) => entry.teamId === teamId);
+  select.innerHTML = (board?.assets || []).map((asset) => `<option value="${asset.value}">${asset.label} · ${asset.value}</option>`).join("");
+}
+
+function updateTradePreview() {
+  const send = selectedAssets("#trade-assets-a");
+  const receive = selectedAssets("#trade-assets-b");
+  const sendTotal = send.reduce((total, asset) => total + asset.value, 0);
+  const receiveTotal = receive.reduce((total, asset) => total + asset.value, 0);
+  const gap = Math.abs(sendTotal - receiveTotal);
+  const withinLimit = gap <= 50;
+  $("#trade-builder-state").textContent = withinLimit ? "Value check is within limit" : "Value gap needs committee review";
+  $("#trade-preview").innerHTML = `<div class="trade-preview-card ${withinLimit ? "approved" : "denied"}"><div><span>You send</span><strong>${sendTotal}</strong><small>${send.map((asset) => asset.label).join(", ") || "No assets selected"}</small></div><div><span>You receive</span><strong>${receiveTotal}</strong><small>${receive.map((asset) => asset.label).join(", ") || "No assets selected"}</small></div><p>Value gap ${gap} ${withinLimit ? "is within the 50 point limit." : "exceeds the 50 point limit."}</p><button class="primary-button" type="button">Draft Trade Proposal</button></div>`;
+}
+
+function renderTradeBuilder() {
+  const teamOptions = tradeAssets.map((entry) => `<option value="${entry.teamId}">${entry.teamName}</option>`).join("");
+  $("#trade-team-a").innerHTML = teamOptions;
+  $("#trade-team-b").innerHTML = teamOptions;
+  if (!$("#trade-team-b").value || $("#trade-team-b").value === $("#trade-team-a").value) $("#trade-team-b").selectedIndex = Math.min(1, tradeAssets.length - 1);
+  renderAssetOptions($("#trade-assets-a"), $("#trade-team-a").value);
+  renderAssetOptions($("#trade-assets-b"), $("#trade-team-b").value);
+  updateTradePreview();
+}
+
+["#trade-team-a", "#trade-team-b"].forEach((selector) => $(selector).addEventListener("change", () => {
+  renderAssetOptions($(selector === "#trade-team-a" ? "#trade-assets-a" : "#trade-assets-b"), $(selector).value);
+  updateTradePreview();
+}));
+["#trade-assets-a", "#trade-assets-b"].forEach((selector) => $(selector).addEventListener("change", updateTradePreview));
 
 document.querySelectorAll(".status-tabs button").forEach((button) => button.addEventListener("click", () => {
   if (button.dataset.matchupFilter) {

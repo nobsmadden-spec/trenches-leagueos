@@ -51,6 +51,13 @@ test("health and league summary APIs respond", async () => {
   assert.equal(strikeBoard.status, 200);
   assert.equal(strikeBoard.json.rules.hardLimit, 5);
   assert.ok(strikeBoard.json.activeCases.length > 0);
+  const trades = await get("/api/leagues/the-trenches/trades");
+  assert.equal(trades.status, 200);
+  assert.ok(trades.json[0].valueCheck);
+  assert.ok(trades.json[0].teamAAssets[0].value >= 0);
+  const tradeAssets = await get("/api/leagues/the-trenches/trade-assets");
+  assert.equal(tradeAssets.status, 200);
+  assert.ok(tradeAssets.json[0].assets.length > 0);
   const me = await get("/api/me");
   assert.equal(me.json.authenticated, true);
 });

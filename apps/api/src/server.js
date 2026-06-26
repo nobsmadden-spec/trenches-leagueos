@@ -246,6 +246,53 @@ function enrichGame(league, game) {
   return { ...game, awayTeam: repository.getTeam(league, game.awayTeamId), homeTeam: repository.getTeam(league, game.homeTeamId) };
 }
 
+function assetValue(asset) {
+  if (typeof asset === "object") return Number(asset.value || 0);
+  const text = String(asset || "");
+  const pickMatch = text.match(/20\d{2}\s+(\d)(?:st|nd|rd|th)/i);
+  if (pickMatch) return { 1: 250, 2: 150, 3: 90, 4: 55, 5: 30, 6: 18, 7: 10 }[pickMatch[1]] || 0;
+  const player = text.match(/\b([A-Z]{1,3})\s+(.+)/);
+  const positionBonus = { QB: 40, HB: 12, WR: 16, TE: 10, CB: 18, RE: 16, LE: 16, DT: 12, MLB: 12, LOLB: 12, ROLB: 12, SS: 10, FS: 10 };
+  return player ? 100 + (positionBonus[player[1]] || 8) : 75;
+}
+
+function normalizeTradeAsset(asset) {
+  if (typeof asset === "object") return asset;
+  return { label: asset, value: assetValue(asset), type: String(asset).match(/20\d{2}/) ? "pick" : "player" };
+}
+
+function enrichTrade(league, trade) {
+  const teamAAssets = (trade.teamAAssets || []).map(normalizeTradeAsset);
+  const teamBAssets = (trade.teamBAssets || []).map(normalizeTradeAsset);
+  const teamATotal = teamAAssets.reduce((total, asset) => total + Number(asset.value || 0), 0);
+  const teamBTotal = teamBAssets.reduce((total, asset) => total + Number(asset.value || 0), 0);
+  const gap = Math.abs(teamATotal - teamBTotal);
+  return {
+    ...trade,
+    teamA: repository.getTeam(league, trade.teamA),
+    teamB: repository.getTeam(league, trade.teamB),
+    teamAAssets,
+    teamBAssets,
+    valueCheck: { teamATotal, teamBTotal, gap, limit: 50, withinLimit: gap <= 50 }
+  };
+}
+
+function tradeAssetBoard(league) {
+  const picks = ["2027 1st", "2027 2nd", "2027 3rd", "2028 1st", "2028 2nd", "2029 1st"];
+  return league.teams.map((team) => ({
+    teamId: team.id,
+    teamName: team.name,
+    assets: [
+      ...league.players.filter((player) => player.teamId === team.id).map((player) => ({
+        label: `${player.position} ${player.name}`,
+        value: Math.round(((player.overall || 70) - 60) * 11 + (player.position === "QB" ? 80 : 0)),
+        type: "player"
+      })),
+      ...picks.map((pick) => ({ label: pick, value: assetValue(pick), type: "pick" }))
+    ]
+  }));
+}
+
 function buildStrikeBoard(league) {
   const configured = league.strikeBoard || {};
   const rules = configured.rules || { fairSim: 0.5, forceWin: 1, determinedStrike: 1.5, hardLimit: 5 };
@@ -445,9 +492,8 @@ async function leagueRoute(request, response, url, identity) {
     if (!hasLeagueRole(identity, league.id, "commissioner")) return sendJson(response, identity ? 403 : 401, { error: "Commissioner role required" }) ?? true;
     return sendJson(response, 200, buildStrikeBoard(league)) ?? true;
   }
-  if (resource === "trades") return sendJson(response, 200, (league.trades || []).map((trade) => ({
-    ...trade, teamA: repository.getTeam(league, trade.teamA), teamB: repository.getTeam(league, trade.teamB)
-  }))) ?? true;
+  if (resource === "trades") return sendJson(response, 200, (league.trades || []).map((trade) => enrichTrade(league, trade))) ?? true;
+  if (resource === "trade-assets") return sendJson(response, 200, tradeAssetBoard(league)) ?? true;
   if (resource === "media") return sendJson(response, 200, league.media || []) ?? true;
   if (resource === "standings") return sendJson(response, 200, standingsByDivision(league.teams)) ?? true;
   if (resource === "stat-leaders") {

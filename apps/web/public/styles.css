@@ -711,6 +711,50 @@ h1, h2, strong { font-family: "Barlow Condensed", sans-serif; text-transform: up
 .matchup-tabs { flex-wrap: wrap; }
 .status-tabs button { background: none; border: 1px solid var(--line); color: var(--muted); padding: 10px 16px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; cursor: pointer; }
 .status-tabs button.active { border-color: var(--gold); color: var(--gold); background: rgba(214,169,75,.07); }
+.trade-builder-panel { margin-bottom: 22px; }
+.trade-builder {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+.trade-builder label {
+  display: grid;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .1em;
+}
+.trade-builder select {
+  width: 100%;
+  border: 1px solid var(--line);
+  background: rgba(8,11,16,.6);
+  color: var(--ink);
+  padding: 11px;
+  min-height: 44px;
+}
+.trade-builder select[multiple] { min-height: 150px; }
+.trade-preview { margin-top: 16px; }
+.trade-preview-card {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 14px;
+  align-items: center;
+  border: 1px solid var(--line);
+  background: rgba(8,11,16,.35);
+  padding: 16px;
+}
+.trade-preview-card.approved { border-left: 3px solid var(--green); }
+.trade-preview-card.denied { border-left: 3px solid #f87171; }
+.trade-preview-card span {
+  color: var(--muted);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: .12em;
+}
+.trade-preview-card strong { display: block; color: var(--gold); font-size: 28px; }
+.trade-preview-card small { display: block; color: var(--muted); font-size: 11px; line-height: 1.5; }
+.trade-preview-card p { color: var(--muted); font-size: 12px; margin: 0; }
 .trade-list { display: grid; gap: 14px; }
 .trade-card { border: 1px solid var(--line); background: var(--panel); padding: 22px; }
 .trade-card:hover { border-color: rgba(214,169,75,.25); }
@@ -721,7 +765,9 @@ h1, h2, strong { font-family: "Barlow Condensed", sans-serif; text-transform: up
 .trade-swap { color: var(--gold); font-size: 20px; text-align: center; }
 .trade-side strong { display: block; font: 700 14px Inter; text-transform: none; margin-bottom: 8px; }
 .trade-sides strong { font-size: 17px; }
-.trade-sides span { color: var(--muted); font-size: 11px; }
+.trade-sides span { display: flex; justify-content: space-between; gap: 10px; color: var(--muted); font-size: 11px; }
+.trade-sides span b { color: var(--gold); }
+.trade-sides em { color: var(--ink); font-style: normal; font-weight: 800; font-size: 11px; margin-top: 5px; }
 .trade-player { font-size: 12px; color: var(--muted); padding: 4px 0; border-top: 1px solid var(--line); }
 .trade-meta { display: flex; gap: 12px; align-items: center; }
 .trade-status { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .1em; padding: 5px 8px; border: 1px solid; }
@@ -730,6 +776,18 @@ h1, h2, strong { font-family: "Barlow Condensed", sans-serif; text-transform: up
 .trade-status.committee_review { color: var(--orange); border-color: rgba(236,91,42,.4); }
 .trade-status.approved { color: var(--green); border-color: rgba(88,199,139,.4); }
 .trade-status.denied { color: var(--muted); border-color: var(--line); }
+.trade-value-check {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid var(--line);
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  font-size: 11px;
+}
+.trade-value-check.approved { border-color: rgba(88,199,139,.4); color: var(--green); }
+.trade-value-check.denied { border-color: rgba(239,68,68,.45); color: #f87171; }
+.trade-value-check span { color: var(--muted); }
 .vote-progress { border-top: 1px solid var(--line); padding-top: 13px; color: var(--muted); font-size: 10px; }
 .vote-progress strong { color: var(--ink); }
 
@@ -1033,6 +1091,7 @@ footer {
   .thread-team-grid { grid-template-columns: 1fr; }
   .thread-team { grid-template-columns: 1fr; }
   .strike-summary, .strike-columns { grid-template-columns: 1fr; }
+  .trade-builder, .trade-preview-card { grid-template-columns: 1fr; }
   .team-badge { width: 56px; height: 56px; font-size: 21px; }
   .match-team h3 { font-size: 21px; }
   .versus strong { font-size: 38px; }

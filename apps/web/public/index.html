@@ -114,6 +114,16 @@
     </section>
     <section id="trades-view" class="view">
       <div class="page-heading"><p class="eyebrow">Negotiation to decision</p><h1>Trade Center</h1></div>
+      <section class="panel trade-builder-panel">
+        <div class="panel-heading"><div><span>Guided flow</span><h2>Trade Builder</h2></div><span id="trade-builder-state" class="muted">Pick teams and assets</span></div>
+        <div class="trade-builder">
+          <label>Your Team<select id="trade-team-a"></select></label>
+          <label>Other Team<select id="trade-team-b"></select></label>
+          <label>Assets You Send<select id="trade-assets-a" multiple></select></label>
+          <label>Assets You Receive<select id="trade-assets-b" multiple></select></label>
+        </div>
+        <div id="trade-preview" class="trade-preview"></div>
+      </section>
       <div class="status-tabs"><button class="active">All Activity</button><button>Negotiating</button><button>Committee</button><button>Completed</button></div>
       <div id="trade-list" class="trade-list"></div>
     </section>
