@@ -27,6 +27,7 @@ const mime = { ".html": "text/html; charset=utf-8", ".css": "text/css; charset=u
 const maxExportBytes = Number(process.env.MAX_EXPORT_URL_BYTES || 5_000_000);
 const receiverAttempts = [];
 const runtimeTrades = new Map();
+const runtimeRecognition = new Map();
 
 function sendJson(response, status, body) {
   response.writeHead(status, { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" });
@@ -389,7 +390,11 @@ function workspaceFor(league, role, identity) {
   };
 }
 
-function recognitionFor(league) {
+function recognitionKey(league, identity) {
+  return `${league.id}:${identity?.id || league.demoUser?.id || "demo-user"}`;
+}
+
+function baseRecognitionFor(league) {
   if (league.recognition) return league.recognition;
   const ranked = powerRankings(league.teams);
   const best = ranked[0] || league.teams[0] || {};
@@ -417,13 +422,46 @@ function recognitionFor(league) {
   };
 }
 
+function recognitionFor(league, identity) {
+  const base = JSON.parse(JSON.stringify(baseRecognitionFor(league)));
+  const activations = runtimeRecognition.get(recognitionKey(league, identity)) || [];
+  const balances = { ...(base.balances || {}) };
+  const activeIds = new Set(activations.map((activation) => activation.id));
+  base.perks = (base.perks || []).map((perk) => {
+    if (!activeIds.has(perk.id)) return perk;
+    return { ...perk, status: "active" };
+  });
+  for (const activation of activations) {
+    const lane = String(activation.lane || "").toLowerCase();
+    balances[lane] = Math.max(0, Number(balances[lane] || 0) - Number(activation.cost || 0));
+  }
+  base.balances = balances;
+  base.activePerks = activations;
+  return base;
+}
+
+function activateRecognitionPerk(league, identity, perkId) {
+  const current = recognitionFor(league, identity);
+  const perk = current.perks.find((entry) => entry.id === perkId);
+  if (!perk) throw new Error("Recognition perk not found.");
+  if (perk.status === "locked") throw new Error("This perk is locked right now.");
+  if (perk.status === "active") throw new Error("This perk is already active.");
+  const lane = String(perk.lane || "").toLowerCase();
+  const balance = Number(current.balances?.[lane] || 0);
+  if (balance < Number(perk.cost || 0)) throw new Error(`Not enough ${perk.lane} points for this perk.`);
+  const key = recognitionKey(league, identity);
+  const activation = { id: perk.id, name: perk.name, lane: perk.lane, cost: perk.cost, activatedAt: new Date().toISOString() };
+  runtimeRecognition.set(key, [...(runtimeRecognition.get(key) || []), activation]);
+  return recognitionFor(league, identity);
+}
+
 async function leagueRoute(request, response, url, identity) {
   const match = url.pathname.match(/^\/api\/leagues\/([^/]+)(?:\/(.+))?$/);
   if (!match) return false;
   const league = await repository.getLeague(match[1]);
   if (!league) return sendJson(response, 404, { error: "League not found" }) ?? true;
   const resource = match[2];
-  if (request.method !== "GET" && !(request.method === "PATCH" && (resource?.startsWith("members/") || resource?.startsWith("trades/"))) && !(request.method === "POST" && ["import-runs", "import-runs/from-url", "bootstrap-owner", "trades"].includes(resource))) {
+  if (request.method !== "GET" && !(request.method === "PATCH" && (resource?.startsWith("members/") || resource?.startsWith("trades/"))) && !(request.method === "POST" && (resource === "recognition/perks" || ["import-runs", "import-runs/from-url", "bootstrap-owner", "trades"].includes(resource)))) {
     return sendJson(response, 405, { error: "Method not allowed" }) ?? true;
   }
 
@@ -447,7 +485,16 @@ async function leagueRoute(request, response, url, identity) {
   }
   if (resource === "recognition") {
     if (!hasLeagueRole(identity, league.id, "coach")) return sendJson(response, identity ? 403 : 401, { error: "League membership required" }) ?? true;
-    return sendJson(response, 200, recognitionFor(league)) ?? true;
+    return sendJson(response, 200, recognitionFor(league, identity)) ?? true;
+  }
+  if (resource === "recognition/perks" && request.method === "POST") {
+    if (!hasLeagueRole(identity, league.id, "coach")) return sendJson(response, identity ? 403 : 401, { error: "League membership required" }) ?? true;
+    try {
+      const body = await readJson(request);
+      return sendJson(response, 201, activateRecognitionPerk(league, identity, body.perkId)) ?? true;
+    } catch (error) {
+      return sendJson(response, 400, { error: "Unable to activate perk", detail: error.message }) ?? true;
+    }
   }
   if (resource === "members") {
     if (!hasLeagueRole(identity, league.id, "commissioner")) return sendJson(response, identity ? 403 : 401, { error: "Commissioner role required" }) ?? true;

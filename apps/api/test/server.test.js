@@ -133,6 +133,17 @@ test("coaches can draft and progress a trade proposal", async () => {
   assert.equal(approvedByCommittee.json.status, "approved");
 });
 
+test("coaches can activate recognition perks", async () => {
+  const activated = await request("/api/leagues/the-trenches/recognition/perks", {
+    method: "POST",
+    body: { perkId: "offensive-plan" }
+  });
+  assert.equal(activated.status, 201);
+  assert.equal(activated.json.balances.impact, 5);
+  assert.ok(activated.json.activePerks.some((perk) => perk.id === "offensive-plan"));
+  assert.equal(activated.json.perks.find((perk) => perk.id === "offensive-plan").status, "active");
+});
+
 test("commissioners can record import runs and update sync health", async () => {
   const recorded = await request("/api/leagues/the-trenches/import-runs", {
     method: "POST",

@@ -91,6 +91,11 @@ document.addEventListener("click", (event) => {
     loadTrades(true);
     return;
   }
+  const recognitionPerk = event.target.closest("[data-recognition-perk]");
+  if (recognitionPerk) {
+    activateRecognitionPerk(recognitionPerk.dataset.recognitionPerk);
+    return;
+  }
   const threadOutcome = event.target.closest("[data-thread-outcome]");
   if (threadOutcome) {
     recordThreadOutcome(threadOutcome.dataset.threadOutcome);
@@ -213,8 +218,9 @@ function renderRecognition(recognition) {
   const balances = recognition.balances || {};
   const leaders = recognition.leaders || [];
   const perks = recognition.perks || [];
+  const activePerks = recognition.activePerks || [];
   const challenge = recognition.challenge || {};
-  $("#recognition-hub").innerHTML = `<div class="recognition-balances">${["activity", "impact", "legacy"].map((lane) => `<article><span>${lane}</span><strong>${Number(balances[lane] || 0)}</strong><small>available</small></article>`).join("")}</div><div class="recognition-columns"><section><h3>Recognition Leaders</h3>${leaders.map((leader) => `<div class="recognition-leader"><span>${leader.lane}</span><div><strong>${leader.name}</strong><small>${leader.detail || "League recognition"}</small></div><b>${leader.points}</b></div>`).join("") || `<p class="muted">Recognition leaders will appear after coach events are tracked.</p>`}</section><section><h3>Weekly Challenge</h3><article class="challenge-card"><strong>${challenge.title || "Clean Week Checklist"}</strong><p>${challenge.detail || "Schedule, communicate, stream, and finish on time."}</p><small>${challenge.bonus || "Bonuses will appear here."}</small></article></section></div><div class="perk-grid">${perks.map((perk) => `<button class="perk-card ${perk.status === "locked" ? "locked" : ""}" type="button" title="${perk.detail || ""}"><span>${perk.lane}</span><strong>${perk.name}</strong><small>${perk.status === "locked" ? "Locked" : `Cost ${perk.cost}`}</small></button>`).join("")}</div>`;
+  $("#recognition-hub").innerHTML = `<div class="recognition-balances">${["activity", "impact", "legacy"].map((lane) => `<article><span>${lane}</span><strong>${Number(balances[lane] || 0)}</strong><small>available</small></article>`).join("")}</div><div id="recognition-action" class="recognition-action muted">${activePerks.length ? `${activePerks.length} active perk${activePerks.length === 1 ? "" : "s"} this week.` : "Choose a perk to activate for this week."}</div><div class="recognition-columns"><section><h3>Recognition Leaders</h3>${leaders.map((leader) => `<div class="recognition-leader"><span>${leader.lane}</span><div><strong>${leader.name}</strong><small>${leader.detail || "League recognition"}</small></div><b>${leader.points}</b></div>`).join("") || `<p class="muted">Recognition leaders will appear after coach events are tracked.</p>`}</section><section><h3>Weekly Challenge</h3><article class="challenge-card"><strong>${challenge.title || "Clean Week Checklist"}</strong><p>${challenge.detail || "Schedule, communicate, stream, and finish on time."}</p><small>${challenge.bonus || "Bonuses will appear here."}</small></article>${activePerks.length ? `<div class="active-perks"><h3>Active Perks</h3>${activePerks.map((perk) => `<span>${perk.name} · ${perk.lane}</span>`).join("")}</div>` : ""}</section></div><div class="perk-grid">${perks.map((perk) => `<button class="perk-card ${perk.status === "locked" ? "locked" : ""} ${perk.status === "active" ? "active" : ""}" type="button" title="${perk.detail || ""}" ${perk.status === "available" ? `data-recognition-perk="${perk.id}"` : "disabled"}><span>${perk.lane}</span><strong>${perk.name}</strong><small>${perk.status === "locked" ? "Locked" : perk.status === "active" ? "Active" : `Cost ${perk.cost}`}</small></button>`).join("")}</div>`;
 }
 
 async function loadRecognition() {
@@ -224,6 +230,16 @@ async function loadRecognition() {
     renderRecognition(await api("/recognition"));
   } catch (error) {
     target.innerHTML = `<p class="muted">Recognition is not available yet: ${error.message}</p>`;
+  }
+}
+
+async function activateRecognitionPerk(perkId) {
+  const action = $("#recognition-action");
+  if (action) action.textContent = "Activating perk...";
+  try {
+    renderRecognition(await apiMutation("/recognition/perks", "POST", { perkId }));
+  } catch (error) {
+    if (action) action.textContent = error.message;
   }
 }
 
