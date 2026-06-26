@@ -6,6 +6,7 @@ let currentRole = "coach";
 let workspace;
 let tradeCache = [];
 let tradeAssets = [];
+let tradeFilter = "all";
 let teamCache = [];
 let matchupCache = [];
 let matchupFilter = "all";
@@ -83,6 +84,11 @@ document.addEventListener("click", (event) => {
   const tradeDecision = event.target.closest("[data-trade-decision]");
   if (tradeDecision) {
     updateTradeDecision(tradeDecision.dataset.tradeId, tradeDecision.dataset.tradeDecision);
+    return;
+  }
+  const tradeRefresh = event.target.closest("#trade-refresh");
+  if (tradeRefresh) {
+    loadTrades(true);
     return;
   }
   const threadOutcome = event.target.closest("[data-thread-outcome]");
@@ -289,20 +295,66 @@ function renderTrades(filter = "all") {
   const visible = tradeCache.filter((trade) => filter === "all" || (filter === "committee" ? trade.status === "committee_review" : filter === "completed" ? trade.status === "approved" : trade.status === filter));
   $("#trade-list").innerHTML = visible.map((trade) => {
     const check = trade.valueCheck || {};
+    const teamA = trade.teamA || { name: "Team A" };
+    const teamB = trade.teamB || { name: "Team B" };
+    const submitted = new Date(trade.submittedAt);
     const actions = trade.status === "negotiating"
       ? `<div class="trade-actions"><button data-trade-id="${trade.id}" data-trade-decision="approve">Other Coach Approves</button><button class="danger-button" data-trade-id="${trade.id}" data-trade-decision="deny">Deny</button></div>`
       : trade.status === "committee_review"
         ? `<div class="trade-actions"><button data-trade-id="${trade.id}" data-trade-decision="committee_approve">Committee Approves</button><button class="danger-button" data-trade-id="${trade.id}" data-trade-decision="committee_deny">Committee Denies</button></div>`
         : "";
-    return `<article class="trade-card"><div class="trade-card-head"><span class="trade-status ${trade.status}">${trade.status.replaceAll("_", " ")}</span><small>${new Date(trade.submittedAt).toLocaleDateString()}</small></div><div class="trade-sides"><div><strong>${trade.teamA.name}</strong>${trade.teamAAssets.map((asset) => `<span>${asset.label || asset} <b>${asset.value || 0}</b></span>`).join("")}<em>Total ${check.teamATotal || 0}</em></div><div class="trade-swap">⇄</div><div><strong>${trade.teamB.name}</strong>${trade.teamBAssets.map((asset) => `<span>${asset.label || asset} <b>${asset.value || 0}</b></span>`).join("")}<em>Total ${check.teamBTotal || 0}</em></div></div><div class="trade-value-check ${check.withinLimit ? "approved" : "denied"}"><span>Value gap ${check.gap ?? "--"} / limit ${check.limit || 50}</span><strong>${check.withinLimit ? "Within Limit" : "Committee Flag"}</strong></div><div class="vote-progress"><span>Committee votes</span><strong>${trade.votesFor}/${trade.votesNeeded}</strong></div>${actions}</article>`;
+    return `<article class="trade-card"><div class="trade-card-head"><span class="trade-status ${trade.status}">${trade.status.replaceAll("_", " ")}</span><small>${Number.isNaN(submitted.valueOf()) ? "Date pending" : submitted.toLocaleDateString()}</small></div><div class="trade-id">Trade ID ${trade.id}</div><div class="trade-sides"><div><strong>${teamA.name}</strong>${trade.teamAAssets.map((asset) => `<span>${asset.label || asset} <b>${asset.value || 0}</b></span>`).join("")}<em>Total ${check.teamATotal || 0}</em></div><div class="trade-swap">⇄</div><div><strong>${teamB.name}</strong>${trade.teamBAssets.map((asset) => `<span>${asset.label || asset} <b>${asset.value || 0}</b></span>`).join("")}<em>Total ${check.teamBTotal || 0}</em></div></div><div class="trade-value-check ${check.withinLimit ? "approved" : "denied"}"><span>Value gap ${check.gap ?? "--"} / limit ${check.limit || 50}</span><strong>${check.withinLimit ? "Within Limit" : "Committee Flag"}</strong></div><div class="vote-progress"><span>Committee votes</span><strong>${trade.votesFor}/${trade.votesNeeded}</strong></div>${actions}</article>`;
   }).join("") || `<p class="empty">No trades in this stage.</p>`;
 }
 
-async function loadTrades() {
-  if (!tradeCache.length) tradeCache = await api("/trades");
-  if (!tradeAssets.length) tradeAssets = await api("/trade-assets");
-  renderTradeBuilder();
-  renderTrades();
+function renderTradeOperations() {
+  const counts = {
+    all: tradeCache.length,
+    negotiating: tradeCache.filter((trade) => trade.status === "negotiating").length,
+    committee: tradeCache.filter((trade) => trade.status === "committee_review").length,
+    approved: tradeCache.filter((trade) => trade.status === "approved").length,
+    denied: tradeCache.filter((trade) => trade.status === "denied").length
+  };
+  $("#trade-summary").innerHTML = [
+    ["All", counts.all],
+    ["Negotiating", counts.negotiating],
+    ["Committee", counts.committee],
+    ["Approved", counts.approved],
+    ["Denied", counts.denied]
+  ].map(([label, value]) => `<article><span>${label}</span><strong>${value}</strong></article>`).join("");
+  const attention = tradeCache.find((trade) => trade.status === "committee_review") || tradeCache.find((trade) => trade.status === "negotiating");
+  if (!attention) {
+    $("#trade-attention").innerHTML = `<p class="muted">No trades need action right now. The approval lane is clear.</p>`;
+    return;
+  }
+  const check = attention.valueCheck || {};
+  const teamA = attention.teamA?.name || "Team A";
+  const teamB = attention.teamB?.name || "Team B";
+  const nextAction = attention.status === "committee_review" ? "Committee vote required" : "Waiting on other coach";
+  $("#trade-attention").innerHTML = `<article class="trade-attention-card"><div><span class="trade-status ${attention.status}">${attention.status.replaceAll("_", " ")}</span><h3>${teamA} ↔ ${teamB}</h3><p>${nextAction} · value gap ${check.gap ?? "--"}${check.withinLimit === false ? " · committee flag" : ""}</p></div><button class="text-button" type="button" data-trade-filter-target="${attention.status === "committee_review" ? "committee" : "negotiating"}">View Lane</button></article>`;
+}
+
+async function loadTrades(force = false) {
+  if (force) {
+    $("#trade-list").innerHTML = `<p class="empty">Refreshing trade board...</p>`;
+    tradeCache = [];
+  }
+  try {
+    if (!tradeCache.length) tradeCache = await api("/trades");
+  } catch (error) {
+    $("#trade-list").innerHTML = `<p class="empty">Trade board could not load: ${error.message}</p>`;
+    return;
+  }
+  try {
+    if (!tradeAssets.length) tradeAssets = await api("/trade-assets");
+    renderTradeBuilder();
+  } catch (error) {
+    tradeAssets = [];
+    $("#trade-builder-state").textContent = "Trade asset board is unavailable. Saved trades can still be reviewed.";
+    $("#trade-preview").innerHTML = `<p class="empty">Restart or redeploy the API to enable the guided trade builder.</p>`;
+  }
+  renderTradeOperations();
+  renderTrades(tradeFilter);
 }
 
 function selectedAssets(selector) {
@@ -337,7 +389,8 @@ async function submitTradeProposal() {
   try {
     const trade = await apiMutation("/trades", "POST", body);
     tradeCache = [trade, ...tradeCache.filter((entry) => entry.id !== trade.id)];
-    renderTrades();
+    renderTradeOperations();
+    renderTrades(tradeFilter);
     state.textContent = "Trade proposal drafted and waiting on the other coach.";
   } catch (error) {
     state.textContent = error.message;
@@ -347,7 +400,8 @@ async function submitTradeProposal() {
 async function updateTradeDecision(tradeId, action) {
   const result = await apiMutation(`/trades/${tradeId}`, "PATCH", { action });
   tradeCache = tradeCache.map((trade) => trade.id === tradeId ? result : trade);
-  renderTrades();
+  renderTradeOperations();
+  renderTrades(tradeFilter);
 }
 
 function renderTradeBuilder() {
@@ -371,10 +425,24 @@ document.querySelectorAll(".status-tabs button").forEach((button) => button.addE
     loadMatchups(button.dataset.matchupFilter);
     return;
   }
+  if (button.dataset.tradeFilter) {
+    tradeFilter = button.dataset.tradeFilter;
+    button.closest(".status-tabs").querySelectorAll("button").forEach((item) => item.classList.toggle("active", item === button));
+    renderTrades(tradeFilter);
+    return;
+  }
   button.closest(".status-tabs").querySelectorAll("button").forEach((item) => item.classList.toggle("active", item === button));
   const filters = { "All Activity": "all", Negotiating: "negotiating", Committee: "committee", Completed: "completed" };
   renderTrades(filters[button.textContent]);
 }));
+
+document.addEventListener("click", (event) => {
+  const lane = event.target.closest("[data-trade-filter-target]");
+  if (!lane) return;
+  const filter = lane.dataset.tradeFilterTarget;
+  const button = document.querySelector(`[data-trade-filter="${filter}"]`);
+  if (button) button.click();
+});
 
 async function loadMedia() {
   const posts = await api("/media");

@@ -124,7 +124,12 @@
         </div>
         <div id="trade-preview" class="trade-preview"></div>
       </section>
-      <div class="status-tabs"><button class="active">All Activity</button><button>Negotiating</button><button>Committee</button><button>Completed</button></div>
+      <section class="panel trade-ops-panel">
+        <div class="panel-heading"><div><span>Trade desk</span><h2>Approval Board</h2></div><button id="trade-refresh" class="text-button" type="button">Refresh Trades</button></div>
+        <div id="trade-summary" class="trade-summary"></div>
+        <div id="trade-attention" class="trade-attention"></div>
+      </section>
+      <div class="status-tabs" data-trade-tabs><button class="active" data-trade-filter="all">All Activity</button><button data-trade-filter="negotiating">Negotiating</button><button data-trade-filter="committee">Committee</button><button data-trade-filter="completed">Approved</button><button data-trade-filter="denied">Denied</button></div>
       <div id="trade-list" class="trade-list"></div>
     </section>
     <section id="media-view" class="view">
