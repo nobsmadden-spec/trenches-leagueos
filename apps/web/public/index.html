@@ -21,6 +21,7 @@
     <nav aria-label="Primary navigation">
       <button class="nav-link active" data-view="dashboard">Home</button>
       <button class="nav-link" data-view="standings">League Hub</button>
+      <button class="nav-link" data-view="matchups">Matchups</button>
       <button class="nav-link" data-view="team">My Team</button>
       <button class="nav-link" data-view="players">Scouting</button>
       <button class="nav-link" data-view="trades">Trades</button>
@@ -66,6 +67,10 @@
       </div>
       <div class="section-heading"><div><span>Prime Time</span><h2>Game of the Week</h2></div><span class="broadcast-tag">LIVE PREVIEW</span></div>
       <article id="featured-game" class="featured skeleton"></article>
+      <section class="panel matchup-panel">
+        <div class="panel-heading"><div><span>Game week</span><h2>Matchup Board</h2></div><button class="text-button" data-view-target="matchups">Open all games →</button></div>
+        <div id="dashboard-matchups" class="matchup-mini-grid"></div>
+      </section>
       <div class="dashboard-grid">
         <section class="panel finals-panel">
           <div class="panel-heading"><div><span>Scoreboard</span><h2>Recent Finals</h2></div><button class="text-button" data-view-target="standings">Full table →</button></div>
@@ -88,6 +93,11 @@
         <div id="stat-leaders-grid" class="stat-leaders-grid"></div>
       </section>
       <div id="standings-grid" class="standings-grid"></div>
+    </section>
+    <section id="matchups-view" class="view">
+      <div class="page-heading"><p class="eyebrow">Game week command</p><h1>Matchup Board</h1></div>
+      <div class="status-tabs matchup-tabs"><button class="active" data-matchup-filter="all">All Games</button><button data-matchup-filter="scheduled">Scheduled</button><button data-matchup-filter="unscheduled">Needs Time</button><button data-matchup-filter="played">Finals</button></div>
+      <div id="matchup-grid" class="matchup-grid"></div>
     </section>
     <section id="players-view" class="view">
       <div class="page-heading"><p class="eyebrow">Roster intelligence</p><h1>Player Search</h1></div>

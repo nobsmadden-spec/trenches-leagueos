@@ -1,11 +1,13 @@
 const leagueId = "the-trenches";
 const $ = (selector) => document.querySelector(selector);
-const record = (team) => `${team.wins}-${team.losses}${team.ties ? `-${team.ties}` : ""}`;
+const record = (team = {}) => Number.isFinite(Number(team.wins)) && Number.isFinite(Number(team.losses)) ? `${team.wins}-${team.losses}${team.ties ? `-${team.ties}` : ""}` : "--";
 const formatStat = (value) => Number.isInteger(value) ? value.toLocaleString() : Number(value).toLocaleString(undefined, { maximumFractionDigits: 1 });
 let currentRole = "coach";
 let workspace;
 let tradeCache = [];
 let teamCache = [];
+let matchupCache = [];
+let matchupFilter = "all";
 let selectedTeamId = null;
 document.body.dataset.role = currentRole;
 
@@ -60,6 +62,7 @@ function setView(name) {
   document.querySelectorAll(".nav-link").forEach((link) => link.classList.toggle("active", link.dataset.view === name));
   window.scrollTo({ top: 0, behavior: "smooth" });
   if (name === "standings") loadStandings();
+  if (name === "matchups") loadMatchups();
   if (name === "players") loadPlayers();
   if (name === "team") loadTeam();
   if (name === "trades") loadTrades();
@@ -91,6 +94,19 @@ $("#role-switch").addEventListener("click", async () => {
 
 function gameTeam(team) {
   return `<div class="match-team"><div class="team-badge" style="border-color:${team.color}">${team.abbr}</div><h3>${team.name}</h3><p>${record(team)} · ${team.conference} ${team.division}</p></div>`;
+}
+
+function gameStatusLabel(game) {
+  const labels = { played: "Final", scheduled: "Scheduled", unscheduled: "Needs time", fair_sim: "Fair sim", force_win_home: "Force home", force_win_away: "Force away", admin_review: "Admin review" };
+  return labels[game.status] || game.status || "Unknown";
+}
+
+function matchupLine(game, compact = false) {
+  const away = game.awayTeam || {};
+  const home = game.homeTeam || {};
+  const isFinal = game.status === "played";
+  const detail = isFinal ? `${game.awayScore ?? "-"} - ${game.homeScore ?? "-"}` : (game.scheduledAt || "No time set");
+  return `<article class="${compact ? "matchup-mini" : "matchup-card"}" data-status="${game.status || "unknown"}"><div class="matchup-status"><span>${gameStatusLabel(game)}</span><b>${detail}</b></div><div class="matchup-teams"><button data-team-profile="${away.id}" style="--team-color:${away.color || "#64748b"}"><span>${away.abbr || "AWY"}</span><strong>${away.name || "Away Team"}</strong><small>${record(away)}</small></button><em>${isFinal ? "FINAL" : "VS"}</em><button data-team-profile="${home.id}" style="--team-color:${home.color || "#64748b"}"><span>${home.abbr || "HME"}</span><strong>${home.name || "Home Team"}</strong><small>${record(home)}</small></button></div>${compact ? "" : `<div class="matchup-actions"><button class="text-button" data-team-profile="${away.id}">Away profile</button><button class="primary-button" type="button">Game Thread Preview</button><button class="text-button" data-team-profile="${home.id}">Home profile</button></div>`}</article>`;
 }
 
 function seedRows(teams) {
@@ -139,7 +155,29 @@ function renderDashboard(league) {
   $("#recent-finals").innerHTML = finals.length ? finals.map((final) => `<div class="score-row"><div class="score-teams"><div class="score-team"><span class="mini-badge" style="--team-color:${final.awayTeam.color}">${final.awayTeam.abbr}</span>${final.awayTeam.name}</div><div class="score-team"><span class="mini-badge" style="--team-color:${final.homeTeam.color}">${final.homeTeam.abbr}</span>${final.homeTeam.name}</div></div><div class="score-values"><span>${final.awayScore}</span><span>${final.homeScore}</span></div></div>`).join("") : `<p class="muted">Final scores will appear after completed games import.</p>`;
   $("#power-rankings").innerHTML = (league.powerRankings || []).map((team) => `<li><div class="rank-team"><strong>${team.name}</strong><small>${record(team)} · ${team.pointsFor - team.pointsAgainst >= 0 ? "+" : ""}${team.pointsFor - team.pointsAgainst} DIFF</small></div><span>${team.powerScore}</span></li>`).join("");
   $("#playoff-picture").innerHTML = Object.entries(league.playoffRace || {}).map(([conference, race]) => `<div class="conference"><h3>${conference}</h3>${seedRows(race.playoff)}<p class="hunt-label">IN THE HUNT</p>${seedRows(race.inTheHunt)}</div>`).join("");
+  loadDashboardMatchups();
   renderWorkspace(league.workspace);
+}
+
+async function loadDashboardMatchups() {
+  const target = $("#dashboard-matchups");
+  if (!target) return;
+  try {
+    const games = matchupCache.length ? matchupCache : await api("/games");
+    matchupCache = games;
+    const openGames = games.filter((game) => game.status !== "played").slice(0, 3);
+    target.innerHTML = openGames.length ? openGames.map((game) => matchupLine(game, true)).join("") : `<p class="muted">No upcoming matchups are waiting on the board.</p>`;
+  } catch (error) {
+    target.innerHTML = `<p class="muted">Matchup board could not load: ${error.message}</p>`;
+  }
+}
+
+async function loadMatchups(filter = matchupFilter) {
+  matchupFilter = filter;
+  document.querySelectorAll("[data-matchup-filter]").forEach((button) => button.classList.toggle("active", button.dataset.matchupFilter === matchupFilter));
+  if (!matchupCache.length) matchupCache = await api("/games");
+  const games = matchupFilter === "all" ? matchupCache : matchupCache.filter((game) => game.status === matchupFilter);
+  $("#matchup-grid").innerHTML = games.length ? games.map((game) => matchupLine(game)).join("") : `<p class="empty">No ${matchupFilter === "all" ? "" : gameStatusLabel({ status: matchupFilter }).toLowerCase()} matchups found.</p>`;
 }
 
 async function loadStandings() {
@@ -192,7 +230,11 @@ async function loadTrades() {
 }
 
 document.querySelectorAll(".status-tabs button").forEach((button) => button.addEventListener("click", () => {
-  document.querySelectorAll(".status-tabs button").forEach((item) => item.classList.toggle("active", item === button));
+  if (button.dataset.matchupFilter) {
+    loadMatchups(button.dataset.matchupFilter);
+    return;
+  }
+  button.closest(".status-tabs").querySelectorAll("button").forEach((item) => item.classList.toggle("active", item === button));
   const filters = { "All Activity": "all", Negotiating: "negotiating", Committee: "committee", Completed: "completed" };
   renderTrades(filters[button.textContent]);
 }));

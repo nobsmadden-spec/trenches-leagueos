@@ -43,6 +43,10 @@ test("health and league summary APIs respond", async () => {
   assert.ok(leaders.json[0].leaders.length > 0);
   const team = await get("/api/leagues/the-trenches/teams/buf");
   assert.equal(team.json.owner, "Coach Devin");
+  const games = await get("/api/leagues/the-trenches/games");
+  assert.equal(games.status, 200);
+  assert.ok(games.json[0].awayTeam);
+  assert.ok(games.json[0].homeTeam);
   const me = await get("/api/me");
   assert.equal(me.json.authenticated, true);
 });
