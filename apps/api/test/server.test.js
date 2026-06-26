@@ -82,6 +82,9 @@ test("static assets are served with their real content types", async () => {
   assert.equal(script.status, 200);
   assert.match(script.headers["content-type"], /text\/javascript/);
   assert.match(script.body, /function setView/);
+  assert.match(script.body, /Announcement cards are waiting on the latest API deploy/);
+  assert.match(script.body, /Published media posts will appear here/);
+  assert.match(script.body, /escapeHtml/);
 });
 
 test("production-style requests cannot claim commissioner access by query string", async () => {
