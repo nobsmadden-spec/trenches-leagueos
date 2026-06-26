@@ -394,15 +394,29 @@ function recognitionKey(league, identity) {
   return `${league.id}:${identity?.id || league.demoUser?.id || "demo-user"}`;
 }
 
-function baseRecognitionFor(league) {
+function recognitionTeamFor(league, identity) {
+  const membership = identity?.memberships?.find((entry) => entry.leagueId === league.id && entry.status === "active");
+  return repository.getTeam(league, membership?.teamId || league.demoUser?.teamId) || league.teams[0] || null;
+}
+
+function baseRecognitionFor(league, identity) {
   if (league.recognition) return league.recognition;
   const ranked = powerRankings(league.teams);
   const best = ranked[0] || league.teams[0] || {};
   const challenger = ranked[1] || league.teams[1] || best;
+  const team = recognitionTeamFor(league, identity);
+  const playedGames = (league.games || []).filter((game) => game.status === "played" && (game.homeTeamId === team?.id || game.awayTeamId === team?.id));
+  const openGames = (league.games || []).filter((game) => game.status !== "played" && (game.homeTeamId === team?.id || game.awayTeamId === team?.id));
+  const wins = Number(team?.wins || 0);
+  const losses = Number(team?.losses || 0);
+  const pointDiff = Number(team?.pointsFor || 0) - Number(team?.pointsAgainst || 0);
+  const activity = Math.max(5, Math.min(20, 3 + playedGames.length * 2 + openGames.length));
+  const impact = Math.max(6, Math.min(30, wins * 2 + Math.floor(Math.max(0, pointDiff) / 50)));
+  const legacy = Math.max(4, Math.min(20, Math.floor((wins + Math.max(league.teams.length, 1)) / 4) - Math.floor(losses / 4)));
   return {
     week: league.week,
     phase: Number(league.week || 0) >= 10 ? "Late Regular Season" : "Regular Season",
-    balances: { activity: 0, impact: 0, legacy: 0 },
+    balances: { activity, impact, legacy },
     leaders: [
       { lane: "Activity", name: best.name || "League leader", points: Math.max(0, Number(best.wins || 0) * 2 - Number(best.losses || 0)), detail: "Generated from current record until recognition events are recorded." },
       { lane: "Impact", name: challenger.name || "Contender", points: Math.max(0, Number(challenger.pointsFor || 0) - Number(challenger.pointsAgainst || 0)), detail: "Point differential snapshot from imported standings." },
@@ -423,7 +437,7 @@ function baseRecognitionFor(league) {
 }
 
 function recognitionFor(league, identity, savedActivations) {
-  const base = JSON.parse(JSON.stringify(baseRecognitionFor(league)));
+  const base = JSON.parse(JSON.stringify(baseRecognitionFor(league, identity)));
   const activations = savedActivations || runtimeRecognition.get(recognitionKey(league, identity)) || [];
   const balances = { ...(base.balances || {}) };
   const activeIds = new Set(activations.map((activation) => activation.id));
