@@ -156,12 +156,13 @@ async function receiverRoute(request, response, url) {
   if (!league) return sendJson(response, 404, { error: "League not found" }) ?? true;
   if (!repository.recordImportRun) return sendJson(response, 501, { error: "Import recording is not supported by this repository" }) ?? true;
   let body = null;
+  let input = null;
   try {
     body = await readJson(request);
     const exportPayload = unwrapExportPayload(body);
-    const input = snallabotPathExportToInput(tail, exportPayload) || (exportPayload?.schemaVersion ? normalizeExport(exportPayload) : exportPayload);
+    input = snallabotPathExportToInput(tail, exportPayload) || (exportPayload?.schemaVersion ? normalizeExport(exportPayload) : exportPayload);
     if (!Array.isArray(input?.datasets) || input.datasets.length === 0) {
-      recordReceiverAttempt(league.id, { status: "rejected", statusCode: 400, message: "No importable datasets found", preview: payloadPreview(exportPayload) });
+      recordReceiverAttempt(league.id, { status: "rejected", statusCode: 400, source: input?.source || tail || "snallabot-receiver", message: "No importable datasets found", preview: payloadPreview(exportPayload) });
       return sendJson(response, 400, { error: "No importable datasets found", detail: "The receiver accepted the request, but the payload did not contain LeagueOS or Snallabot export data." }) ?? true;
     }
     const run = await repository.recordImportRun(league, {
@@ -170,10 +171,10 @@ async function receiverRoute(request, response, url) {
       week: input.week,
       datasets: input.datasets
     }, null);
-    recordReceiverAttempt(league.id, { status: "accepted", statusCode: 201, message: "Import recorded", preview: payloadPreview(exportPayload), importRunId: run.id });
+    recordReceiverAttempt(league.id, { status: "accepted", statusCode: 201, source: input.source || tail || "snallabot-receiver", message: "Import recorded", preview: payloadPreview(exportPayload), importRunId: run.id });
     return sendJson(response, 201, { ok: true, importRun: run }) ?? true;
   } catch (error) {
-    recordReceiverAttempt(league.id, { status: "failed", statusCode: 400, message: error.message, preview: payloadPreview(body) });
+    recordReceiverAttempt(league.id, { status: "failed", statusCode: 400, source: input?.source || tail || "snallabot-receiver", message: error.message, preview: payloadPreview(body) });
     return sendJson(response, 400, { error: "Unable to receive Snallabot export", detail: error.message }) ?? true;
   }
 }
@@ -360,6 +361,34 @@ async function leagueRoute(request, response, url, identity) {
     if (!repository.listImportRuns) return sendJson(response, 501, { error: "Import history is not supported by this repository" }) ?? true;
     const limit = Math.min(Number(url.searchParams.get("limit") || 10), 50);
     return sendJson(response, 200, await repository.listImportRuns(league, limit)) ?? true;
+  }
+  if (resource === "import-runs/monitor" && request.method === "GET") {
+    const monitorToken = url.searchParams.get("token");
+    const configuredMonitorToken = process.env.SNALLABOT_WEBHOOK_TOKEN;
+    if (!configuredMonitorToken || monitorToken !== configuredMonitorToken) return sendJson(response, 401, { error: "Invalid monitor token" }) ?? true;
+    if (!repository.listImportRuns) return sendJson(response, 501, { error: "Import history is not supported" }) ?? true;
+    const runs = await repository.listImportRuns(league, 50);
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const recent = runs.filter(r => new Date(r.startedAt) >= since);
+    const errors = recent.filter(r => r.errorMessage || (r.datasets || []).some(d => d.errorMessage));
+    const clean = recent.filter(r => !r.errorMessage && !(r.datasets || []).some(d => d.errorMessage));
+    const lastRun = recent[0] || null;
+    const summary = {
+      generatedAt: new Date().toISOString(),
+      window: "24h",
+      total: recent.length,
+      clean: clean.length,
+      errors: errors.length,
+      lastRun: lastRun ? { source: lastRun.source, status: lastRun.status, startedAt: lastRun.startedAt } : null,
+      errorDetails: errors.map(r => ({
+        source: r.source,
+        status: r.status,
+        startedAt: r.startedAt,
+        errorMessage: r.errorMessage || null,
+        datasetErrors: (r.datasets || []).filter(d => d.errorMessage).map(d => ({ name: d.name, error: d.errorMessage }))
+      }))
+    };
+    return sendJson(response, 200, summary) ?? true;
   }
   if (resource === "receiver-attempts" && request.method === "GET") {
     if (!hasLeagueRole(identity, league.id, "commissioner")) return sendJson(response, identity ? 403 : 401, { error: "Commissioner role required" }) ?? true;
