@@ -97,6 +97,10 @@
     <section id="matchups-view" class="view">
       <div class="page-heading"><p class="eyebrow">Game week command</p><h1>Matchup Board</h1></div>
       <div class="status-tabs matchup-tabs"><button class="active" data-matchup-filter="all">All Games</button><button data-matchup-filter="scheduled">Scheduled</button><button data-matchup-filter="unscheduled">Needs Time</button><button data-matchup-filter="played">Finals</button></div>
+      <section id="game-thread-preview" class="panel game-thread-preview hidden">
+        <div class="panel-heading"><div><span>Thread draft</span><h2 id="thread-title">Game Thread Preview</h2></div><button id="thread-close" class="text-button" type="button">Close</button></div>
+        <div id="thread-preview-body" class="thread-preview-body"></div>
+      </section>
       <div id="matchup-grid" class="matchup-grid"></div>
     </section>
     <section id="players-view" class="view">

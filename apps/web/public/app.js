@@ -73,6 +73,11 @@ function setView(name) {
 document.querySelectorAll("[data-view]").forEach((button) => button.addEventListener("click", () => setView(button.dataset.view)));
 document.querySelectorAll("[data-view-target]").forEach((button) => button.addEventListener("click", () => setView(button.dataset.viewTarget)));
 document.addEventListener("click", (event) => {
+  const threadPreview = event.target.closest("[data-thread-preview]");
+  if (threadPreview) {
+    openThreadPreview(threadPreview.dataset.threadPreview);
+    return;
+  }
   const teamProfile = event.target.closest("[data-team-profile]");
   if (teamProfile) {
     selectedTeamId = teamProfile.dataset.teamProfile;
@@ -106,7 +111,27 @@ function matchupLine(game, compact = false) {
   const home = game.homeTeam || {};
   const isFinal = game.status === "played";
   const detail = isFinal ? `${game.awayScore ?? "-"} - ${game.homeScore ?? "-"}` : (game.scheduledAt || "No time set");
-  return `<article class="${compact ? "matchup-mini" : "matchup-card"}" data-status="${game.status || "unknown"}"><div class="matchup-status"><span>${gameStatusLabel(game)}</span><b>${detail}</b></div><div class="matchup-teams"><button data-team-profile="${away.id}" style="--team-color:${away.color || "#64748b"}"><span>${away.abbr || "AWY"}</span><strong>${away.name || "Away Team"}</strong><small>${record(away)}</small></button><em>${isFinal ? "FINAL" : "VS"}</em><button data-team-profile="${home.id}" style="--team-color:${home.color || "#64748b"}"><span>${home.abbr || "HME"}</span><strong>${home.name || "Home Team"}</strong><small>${record(home)}</small></button></div>${compact ? "" : `<div class="matchup-actions"><button class="text-button" data-team-profile="${away.id}">Away profile</button><button class="primary-button" type="button">Game Thread Preview</button><button class="text-button" data-team-profile="${home.id}">Home profile</button></div>`}</article>`;
+  const gameKey = game.id || game.externalId || "";
+  return `<article class="${compact ? "matchup-mini" : "matchup-card"}" data-status="${game.status || "unknown"}"><div class="matchup-status"><span>${gameStatusLabel(game)}</span><b>${detail}</b></div><div class="matchup-teams"><button data-team-profile="${away.id}" style="--team-color:${away.color || "#64748b"}"><span>${away.abbr || "AWY"}</span><strong>${away.name || "Away Team"}</strong><small>${record(away)}</small></button><em>${isFinal ? "FINAL" : "VS"}</em><button data-team-profile="${home.id}" style="--team-color:${home.color || "#64748b"}"><span>${home.abbr || "HME"}</span><strong>${home.name || "Home Team"}</strong><small>${record(home)}</small></button></div>${compact ? "" : `<div class="matchup-actions"><button class="text-button" data-team-profile="${away.id}">Away profile</button><button class="primary-button" type="button" data-thread-preview="${gameKey}">Game Thread Preview</button><button class="text-button" data-team-profile="${home.id}">Home profile</button></div>`}</article>`;
+}
+
+function threadTeam(team = {}, label) {
+  const diff = Number(team.pointsFor || 0) - Number(team.pointsAgainst || 0);
+  return `<article class="thread-team" style="--team-color:${team.color || "#64748b"}"><span>${label}</span><div><strong>${team.name || "Team TBD"}</strong><small>${record(team)} · ${team.conference || "Conference"} ${team.division || ""}</small></div><b>${diff >= 0 ? "+" : ""}${diff} DIFF</b></article>`;
+}
+
+function openThreadPreview(gameId) {
+  const game = matchupCache.find((item) => String(item.id) === String(gameId) || String(item.externalId) === String(gameId));
+  if (!game) return;
+  const away = game.awayTeam || {};
+  const home = game.homeTeam || {};
+  const isFinal = game.status === "played";
+  const scoreLine = isFinal ? `Final score: ${away.abbr || "Away"} ${game.awayScore ?? "-"}, ${home.abbr || "Home"} ${game.homeScore ?? "-"}` : `Kickoff: ${game.scheduledAt || "time still needs to be confirmed"}`;
+  $("#thread-title").textContent = `${away.abbr || "Away"} at ${home.abbr || "Home"}`;
+  $("#thread-preview-body").innerHTML = `<div class="thread-copy"><p class="eyebrow">${gameStatusLabel(game)} · Week ${game.week || "--"}</p><h3>${away.name || "Away Team"} at ${home.name || "Home Team"}</h3><p>${scoreLine}</p></div><div class="thread-team-grid">${threadTeam(away, "Away coach")}${threadTeam(home, "Home coach")}</div><div class="thread-checklist"><strong>Thread checklist</strong><span>Tag both coaches</span><span>Confirm kickoff window</span><span>Post stream or proof link</span><span>${isFinal ? "Mark final and archive" : "Track activity until final"}</span></div>`;
+  const panel = $("#game-thread-preview");
+  panel.classList.remove("hidden");
+  panel.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function seedRows(teams) {
@@ -218,6 +243,7 @@ async function loadTeam(nextTeamId = selectedTeamId) {
 }
 
 $("#team-picker").addEventListener("change", (event) => loadTeam(event.target.value));
+$("#thread-close").addEventListener("click", () => $("#game-thread-preview").classList.add("hidden"));
 
 function renderTrades(filter = "all") {
   const visible = tradeCache.filter((trade) => filter === "all" || (filter === "committee" ? trade.status === "committee_review" : filter === "completed" ? trade.status === "approved" : trade.status === filter));
