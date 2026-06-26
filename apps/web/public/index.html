@@ -7,13 +7,16 @@
   <title>The Trenches LeagueOS</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,600;0,700;0,800;1,800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
   <div class="noise"></div>
   <header class="topbar">
-    <a class="brand" href="#"><span class="brand-mark">TT</span><span>THE TRENCHES<small>LEAGUE OS</small></span></a>
+    <a class="brand" href="#">
+      <img src="/assets/trenches_icon.png" alt="The Trenches" class="brand-logo">
+      <span>THE TRENCHES<small>LEAGUE OS</small></span>
+    </a>
     <nav aria-label="Primary navigation">
       <button class="nav-link active" data-view="dashboard">Home</button>
       <button class="nav-link" data-view="standings">League Hub</button>
@@ -29,19 +32,25 @@
       <div class="season-chip"><span class="live-dot"></span><span id="season-label">Loading league</span></div>
     </div>
   </header>
-
   <main>
     <section class="hero">
-      <div>
+      <div class="hero-content">
         <p class="eyebrow">League Command Center</p>
         <h1>WELCOME TO<br><em>THE TRENCHES.</em></h1>
         <p class="hero-copy">Every matchup. Every ranking. One league office built for Sundays.</p>
+        <div class="hero-badges">
+          <div class="game-badge">
+            <img src="/assets/ea_sports_logo.png" alt="EA Sports" class="badge-ea">
+          </div>
+          <div class="game-badge game-badge-madden">
+            <img src="/assets/madden26_cover.png" alt="Madden NFL 26" class="badge-madden">
+          </div>
+        </div>
       </div>
       <div class="week-panel">
         <span>Current advance</span><strong id="week-number">WEEK --</strong><small id="advance-at">Syncing schedule</small>
       </div>
     </section>
-
     <section id="dashboard-view" class="view active">
       <div class="workspace-grid">
         <section class="panel action-panel">
@@ -56,7 +65,6 @@
       </div>
       <div class="section-heading"><div><span>Prime Time</span><h2>Game of the Week</h2></div><span class="broadcast-tag">LIVE PREVIEW</span></div>
       <article id="featured-game" class="featured skeleton"></article>
-
       <div class="dashboard-grid">
         <section class="panel finals-panel">
           <div class="panel-heading"><div><span>Scoreboard</span><h2>Recent Finals</h2></div><button class="text-button" data-view-target="standings">Full table →</button></div>
@@ -67,13 +75,11 @@
           <ol id="power-rankings" class="ranking-list"></ol>
         </section>
       </div>
-
       <section class="panel playoff-panel">
         <div class="panel-heading"><div><span>Road to the title</span><h2>Playoff Picture</h2></div><span class="muted">Top 7 qualify</span></div>
         <div id="playoff-picture" class="conference-grid"></div>
       </section>
     </section>
-
     <section id="standings-view" class="view">
       <div class="page-heading"><p class="eyebrow">Every division</p><h1>League Standings</h1></div>
       <section class="panel stat-leaders-panel">
@@ -82,29 +88,24 @@
       </section>
       <div id="standings-grid" class="standings-grid"></div>
     </section>
-
     <section id="players-view" class="view">
       <div class="page-heading"><p class="eyebrow">Roster intelligence</p><h1>Player Search</h1></div>
       <label class="search"><span>⌕</span><input id="player-search" type="search" placeholder="Search name or position (try QB)" autocomplete="off"></label>
       <div id="player-results" class="player-grid"></div>
     </section>
-
     <section id="team-view" class="view">
-      <div class="page-heading"><p class="eyebrow">Coach workspace</p><h1>My Team</h1></div>
+      <div class="page-heading team-page-heading"><div><p class="eyebrow">Coach workspace</p><h1>Team Profile</h1></div><label class="team-picker">View Team<select id="team-picker"></select></label></div>
       <div id="team-command" class="team-command skeleton"></div>
     </section>
-
     <section id="trades-view" class="view">
       <div class="page-heading"><p class="eyebrow">Negotiation to decision</p><h1>Trade Center</h1></div>
       <div class="status-tabs"><button class="active">All Activity</button><button>Negotiating</button><button>Committee</button><button>Completed</button></div>
       <div id="trade-list" class="trade-list"></div>
     </section>
-
     <section id="media-view" class="view">
       <div class="page-heading"><p class="eyebrow">The league never sleeps</p><h1>Media Room</h1></div>
       <div id="media-grid" class="media-grid"></div>
     </section>
-
     <section id="office-view" class="view">
       <div class="page-heading"><p class="eyebrow">Commissioner access</p><h1>League Office</h1></div>
       <div class="office-grid">
@@ -116,7 +117,6 @@
         <section class="panel office-wide"><div class="panel-heading"><div><span>Identity and access</span><h2>Members &amp; Assignments</h2></div><span id="member-save-state" class="muted">Changes are audited</span></div><div id="member-table" class="member-table"></div></section>
       </div>
     </section>
-
     <section id="platform-view" class="view">
       <div class="platform-intro">
         <div class="page-heading"><p class="eyebrow">One connected league office</p><h1>Built For The Full Season</h1></div>
@@ -165,8 +165,23 @@
       <p class="feature-note"><sup>*</sup> Trade Center rules, voting requirements, and approval authority are configured by league commissioners.</p>
     </section>
   </main>
-
-  <footer><span>THE TRENCHES</span><p>League data shown from the seeded evaluation environment.</p><span>EST. 2026</span></footer>
+  <footer>
+    <div class="footer-brand">
+      <img src="/assets/trenches_logo.png" alt="The Trenches" class="footer-logo">
+      <div class="footer-brand-text">
+        <span class="footer-name">THE TRENCHES</span>
+        <span class="footer-sub">ALL-MADDEN SIM LEAGUE &bull; EST. 2026</span>
+      </div>
+    </div>
+    <p class="footer-center">No handouts. No shortcuts. Just football.</p>
+    <div class="footer-powered">
+      <span class="footer-powered-label">POWERED BY</span>
+      <div class="footer-game-badges">
+        <img src="/assets/ea_sports_logo.png" alt="EA Sports" class="footer-ea-logo">
+        <img src="/assets/madden26_cover.png" alt="Madden NFL 26" class="footer-madden-logo">
+      </div>
+    </div>
+  </footer>
   <script type="module" src="/app.js"></script>
 </body>
 </html>
