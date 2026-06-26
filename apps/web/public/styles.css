@@ -566,6 +566,46 @@ h1, h2, strong { font-family: "Barlow Condensed", sans-serif; text-transform: up
   padding: 11px 13px;
   font-size: 11px;
 }
+.recognition-scorecard {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+.recognition-scorecard h3 {
+  grid-column: 1/-1;
+  margin: 0;
+  font-size: 18px;
+}
+.scorecard-item {
+  border: 1px solid var(--line);
+  background: rgba(8,11,16,.35);
+  padding: 13px;
+}
+.scorecard-item span {
+  display: inline-block;
+  margin-bottom: 10px;
+  color: var(--muted);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: .12em;
+}
+.scorecard-item.complete { border-color: rgba(88,199,139,.45); background: rgba(88,199,139,.08); }
+.scorecard-item.warning { border-color: rgba(214,169,75,.45); background: rgba(214,169,75,.08); }
+.scorecard-item.pending { border-color: rgba(248,91,47,.38); background: rgba(248,91,47,.07); }
+.scorecard-item.complete span { color: var(--green); }
+.scorecard-item.warning span { color: var(--gold); }
+.scorecard-item.pending span { color: var(--orange); }
+.scorecard-item strong {
+  display: block;
+  font: 800 13px Inter, sans-serif;
+}
+.scorecard-item small {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+  margin-top: 6px;
+}
 .recognition-breakdown {
   border: 1px solid var(--line);
   background: rgba(8,11,16,.35);
@@ -1295,7 +1335,7 @@ footer {
   .hero { min-height: 430px; align-items: flex-start; flex-direction: column; justify-content: center; }
   .week-panel { width: 100%; }
   .hero-badges { flex-wrap: wrap; }
-  .dashboard-grid, .workspace-grid, .conference-grid, .standings-grid, .stat-leaders-grid, .matchup-grid, .matchup-mini-grid, .player-grid, .feature-grid, .platform-intro, .team-columns, .media-grid, .office-grid, .trade-summary, .recognition-balances, .recognition-columns { grid-template-columns: 1fr; }
+  .dashboard-grid, .workspace-grid, .conference-grid, .standings-grid, .stat-leaders-grid, .matchup-grid, .matchup-mini-grid, .player-grid, .feature-grid, .platform-intro, .team-columns, .media-grid, .office-grid, .trade-summary, .recognition-balances, .recognition-scorecard, .recognition-columns { grid-template-columns: 1fr; }
   .office-wide { grid-column: span 1; }
   .team-page-heading { display: block; }
   .team-picker { min-width: 0; margin-top: 18px; }

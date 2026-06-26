@@ -61,6 +61,12 @@ export const demoLeague = {
       { lane: "Impact", label: "Performance and league office", points: 11, detail: "Featured wins, imports, and strategy-tool usage." },
       { lane: "Legacy", label: "Long-term standing", points: 6, detail: "History, rivalry moments, and league participation." }
     ],
+    scorecard: [
+      { label: "Game thread response", status: "complete", detail: "Coach has checked into the weekly matchup thread." },
+      { label: "Kickoff scheduled", status: "warning", detail: "One open matchup still needs a confirmed time." },
+      { label: "Stream or proof", status: "pending", detail: "Post stream link or final proof before advance." },
+      { label: "League office touch", status: "complete", detail: "Latest import and team tools are active." }
+    ],
     leaders: [
       { lane: "Activity", name: "KC Chiefs", points: 17, detail: "Posts, streams, and game thread response" },
       { lane: "Impact", name: "Coach Devin", points: 38, detail: "Featured wins and league office usage" },

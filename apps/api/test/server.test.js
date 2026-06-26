@@ -62,6 +62,7 @@ test("health and league summary APIs respond", async () => {
   assert.equal(recognition.status, 200);
   assert.ok(recognition.json.leaders.length > 0);
   assert.ok(recognition.json.breakdown.some((item) => item.lane === "Impact"));
+  assert.ok(recognition.json.scorecard.some((item) => item.label === "Stream or proof"));
   assert.ok(recognition.json.perks.some((perk) => perk.name === "Offensive Game Plan"));
   const me = await get("/api/me");
   assert.equal(me.json.authenticated, true);

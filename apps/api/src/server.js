@@ -413,6 +413,8 @@ function baseRecognitionFor(league, identity) {
   const activity = Math.max(5, Math.min(20, 3 + playedGames.length * 2 + openGames.length));
   const impact = Math.max(6, Math.min(30, wins * 2 + Math.floor(Math.max(0, pointDiff) / 50)));
   const legacy = Math.max(4, Math.min(20, Math.floor((wins + Math.max(league.teams.length, 1)) / 4) - Math.floor(losses / 4)));
+  const scheduledGames = openGames.filter((game) => game.status === "scheduled" || game.scheduledAt);
+  const featuredOpenGame = openGames.find((game) => game.featured) || openGames[0];
   return {
     week: league.week,
     phase: Number(league.week || 0) >= 10 ? "Late Regular Season" : "Regular Season",
@@ -421,6 +423,28 @@ function baseRecognitionFor(league, identity) {
       { lane: "Activity", label: "Game thread activity", points: activity, detail: `${playedGames.length} completed game(s), ${openGames.length} open matchup(s).` },
       { lane: "Impact", label: "Team performance", points: impact, detail: `${wins}-${losses} record, ${pointDiff >= 0 ? "+" : ""}${pointDiff} point differential.` },
       { lane: "Legacy", label: "League standing", points: legacy, detail: `${league.teams.length} teams tracked, ${wins} win(s) banked.` }
+    ],
+    scorecard: [
+      {
+        label: "Game completed",
+        status: playedGames.length ? "complete" : "pending",
+        detail: playedGames.length ? `${playedGames.length} completed game(s) imported this week.` : "No completed game has imported for this coach yet."
+      },
+      {
+        label: "Kickoff scheduled",
+        status: !openGames.length || scheduledGames.length ? "complete" : "warning",
+        detail: !openGames.length ? "No open matchup is waiting." : scheduledGames.length ? `${scheduledGames.length} open matchup(s) have a time.` : `${featuredOpenGame?.awayTeam?.name || "Open matchup"} at ${featuredOpenGame?.homeTeam?.name || "opponent"} still needs a confirmed time.`
+      },
+      {
+        label: "Thread communication",
+        status: openGames.length ? "pending" : "complete",
+        detail: openGames.length ? "Use the game thread to confirm availability and outcome." : "No active thread response is needed right now."
+      },
+      {
+        label: "Stream or proof",
+        status: playedGames.length ? "complete" : "pending",
+        detail: playedGames.length ? "Game result is in; archive proof when ready." : "Post a stream link or result proof before advance."
+      }
     ],
     leaders: [
       { lane: "Activity", name: best.name || "League leader", points: Math.max(0, Number(best.wins || 0) * 2 - Number(best.losses || 0)), detail: "Generated from current record until recognition events are recorded." },
