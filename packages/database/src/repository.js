@@ -133,6 +133,102 @@ function datasetPayload(datasets, name) {
   return datasets.find((dataset) => dataset.name.toLowerCase() === name.toLowerCase())?.payload || [];
 }
 
+const statLeaderCategories = [
+  { key: "passing", title: "Passing", datasetNames: ["Passing"], metric: "Pass Yards", aliases: ["passingYds", "passYds", "passYards", "passingYards", "yards"], secondaryMetric: "TD", secondaryAliases: ["passingTDs", "passTDs", "passingTds", "passTds", "tds", "touchdowns"] },
+  { key: "rushing", title: "Rushing", datasetNames: ["Rushing"], metric: "Rush Yards", aliases: ["rushingYds", "rushYds", "rushingYards", "rushYards", "yards"], secondaryMetric: "TD", secondaryAliases: ["rushingTDs", "rushTDs", "rushingTds", "rushTds", "tds", "touchdowns"] },
+  { key: "receiving", title: "Receiving", datasetNames: ["Receiving"], metric: "Rec Yards", aliases: ["receivingYds", "recYds", "receivingYards", "recYards", "yards"], secondaryMetric: "REC", secondaryAliases: ["receptions", "rec", "catches"] },
+  { key: "defense", title: "Defense", datasetNames: ["Defense", "Defensive"], metric: "Sacks", aliases: ["defSacks", "sacks", "sack"], secondaryMetric: "INT", secondaryAliases: ["defInts", "interceptions", "ints", "int"] },
+  { key: "kicking", title: "Kicking", datasetNames: ["Kicking"], metric: "FG Made", aliases: ["fgMade", "fieldGoalsMade", "fgm", "kickFgm"], secondaryMetric: "PTS", secondaryAliases: ["kickPts", "points", "pts"] },
+  { key: "punting", title: "Punting", datasetNames: ["Punting"], metric: "Punt Yards", aliases: ["puntYds", "puntingYds", "puntYards", "puntingYards", "yards"], secondaryMetric: "PUNTS", secondaryAliases: ["punts", "puntAttempts", "attempts"] }
+];
+
+function numberAt(row, names) {
+  for (const name of names) {
+    const value = row?.[name];
+    if (value === null || value === undefined || value === "") continue;
+    const number = Number(value);
+    if (Number.isFinite(number)) return number;
+  }
+  return null;
+}
+
+function statPlayerId(row) {
+  return row?.rosterId ?? row?.playerId ?? row?.maddenId ?? row?.id ?? row?.statId ?? null;
+}
+
+function statTeamId(row) {
+  return row?.teamId ?? row?.teamID ?? row?.clubId ?? row?.clubID ?? null;
+}
+
+function playerName(row, player) {
+  const direct = row?.fullName || row?.playerName || row?.name;
+  if (direct) return String(direct);
+  const joined = [row?.firstName, row?.lastName].filter(Boolean).join(" ");
+  return joined || player?.name || "Unknown Player";
+}
+
+function teamName(row, player, teamsByExternalId) {
+  const teamId = statTeamId(row) ?? player?.team?.externalId;
+  const team = teamId === null || teamId === undefined ? null : teamsByExternalId.get(String(teamId));
+  return team?.abbreviation || team?.abbr || team?.name || player?.team?.abbreviation || null;
+}
+
+function latestPayloadByDataset(rawExports) {
+  const latest = new Map();
+  for (const rawExport of rawExports || []) {
+    const key = rawExport.dataset?.toLowerCase();
+    if (!key || latest.has(key)) continue;
+    latest.set(key, Array.isArray(rawExport.payload) ? rawExport.payload : []);
+  }
+  return latest;
+}
+
+export function buildStatLeaders({ rawExports = [], players = [], teams = [], limit = 5 } = {}) {
+  const latest = latestPayloadByDataset(rawExports);
+  const playersByExternalId = new Map(players.map((player) => [String(player.externalId || player.id), player]));
+  const teamsByExternalId = new Map(teams.map((team) => [String(team.externalId || team.id), team]));
+  const categories = statLeaderCategories.map((category) => {
+    const rows = category.datasetNames.flatMap((name) => latest.get(name.toLowerCase()) || []);
+    const leaders = rows.map((row) => {
+      const value = numberAt(row, category.aliases);
+      if (value === null) return null;
+      const player = playersByExternalId.get(String(statPlayerId(row))) || null;
+      return {
+        playerId: statPlayerId(row) ? String(statPlayerId(row)) : null,
+        name: playerName(row, player),
+        team: teamName(row, player, teamsByExternalId),
+        metric: category.metric,
+        value,
+        secondaryMetric: category.secondaryMetric,
+        secondaryValue: numberAt(row, category.secondaryAliases)
+      };
+    }).filter(Boolean).sort((a, b) => b.value - a.value).slice(0, limit);
+    return { key: category.key, title: category.title, metric: category.metric, leaders };
+  });
+  return categories.filter((category) => category.leaders.length);
+}
+
+export function fallbackPlayerLeaders(league, limit = 5) {
+  return [{
+    key: "players",
+    title: "Top Players",
+    metric: "Overall",
+    leaders: (league.players || [])
+      .slice()
+      .sort((a, b) => (b.overall || 0) - (a.overall || 0))
+      .slice(0, limit)
+      .map((player) => ({
+        playerId: player.id,
+        name: player.name,
+        team: league.teams?.find((team) => team.id === player.teamId)?.abbr || null,
+        metric: "Overall",
+        value: player.overall || 0,
+        secondaryMetric: player.position,
+        secondaryValue: null
+      }))
+  }];
+}
+
 async function resolveSeasonAndWeek(transaction, league, input) {
   const seasonNumber = input.season || league.season || 1;
   const weekNumber = input.week || league.week || 1;
@@ -370,6 +466,21 @@ export function createPrismaRepository(client = prismaClient()) {
         include: { league: true, datasets: true, rawExports: true }
       });
       return runs.map(normalizeImportRun);
+    },
+    async listStatLeaders(league, limit = 5) {
+      const [rawExports, players] = await Promise.all([
+        client.rawExport.findMany({
+          where: { leagueId: league.databaseId, dataset: { in: statLeaderCategories.flatMap((category) => category.datasetNames) } },
+          orderBy: { createdAt: "desc" },
+          take: 40
+        }),
+        client.player.findMany({
+          where: { leagueId: league.databaseId },
+          include: { team: true }
+        })
+      ]);
+      const leaders = buildStatLeaders({ rawExports, players, teams: league.teams, limit });
+      return leaders.length ? leaders : fallbackPlayerLeaders(league, limit);
     },
     async updateMembership(league, membershipId, changes, actorUserId) {
       const data = {};

@@ -32,6 +32,9 @@ test("health and league summary APIs respond", async () => {
   const office = await get("/api/leagues/the-trenches/workspace?role=commissioner");
   assert.equal(office.json.activeRole, "commissioner");
   assert.ok(office.json.actions.length > 0);
+  const leaders = await get("/api/leagues/the-trenches/stat-leaders");
+  assert.equal(leaders.status, 200);
+  assert.ok(leaders.json[0].leaders.length > 0);
   const team = await get("/api/leagues/the-trenches/teams/buf");
   assert.equal(team.json.owner, "Coach Devin");
   const me = await get("/api/me");
@@ -222,6 +225,7 @@ test("commissioners can inspect rejected Snallabot receiver attempts", async () 
     const attempts = await get("/api/leagues/the-trenches/receiver-attempts");
     assert.equal(attempts.status, 200);
     assert.equal(attempts.json[0].status, "rejected");
+    assert.equal(attempts.json[0].source, "snallabot-receiver");
     assert.deepEqual(attempts.json[0].preview.keys, ["hello"]);
   } finally {
     if (previousToken === undefined) delete process.env.SNALLABOT_WEBHOOK_TOKEN;

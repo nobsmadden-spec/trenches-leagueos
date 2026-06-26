@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createPrismaRepository } from "../src/repository.js";
+import { buildStatLeaders, createPrismaRepository } from "../src/repository.js";
 
 test("Prisma repository normalizes durable league records to the API contract", async () => {
   const row = {
@@ -114,6 +114,43 @@ test("Prisma import history returns recent runs with datasets and raw exports", 
   assert.equal(runs[0].status, "complete");
   assert.equal(runs[0].datasets[0].records, 32);
   assert.equal(runs[0].rawExports[0].sha256, "abc");
+});
+
+test("Snallabot raw weekly stats become stat leader categories", () => {
+  const leaders = buildStatLeaders({
+    rawExports: [
+      { dataset: "Passing", payload: [{ rosterId: 17, firstName: "Josh", lastName: "Allen", teamId: 1, passingYds: 333, passingTDs: 4 }] },
+      { dataset: "Receiving", payload: [{ rosterId: 88, fullName: "Elite Receiver", teamId: 2, recYds: 129, receptions: 8 }] }
+    ],
+    teams: [{ externalId: "1", abbreviation: "BUF" }, { externalId: "2", abbreviation: "DET" }]
+  });
+
+  assert.equal(leaders[0].key, "passing");
+  assert.equal(leaders[0].leaders[0].name, "Josh Allen");
+  assert.equal(leaders[0].leaders[0].team, "BUF");
+  assert.equal(leaders[0].leaders[0].value, 333);
+  assert.equal(leaders[1].leaders[0].secondaryValue, 8);
+});
+
+test("Prisma stat leaders read the latest raw Snallabot stat exports", async () => {
+  const repository = createPrismaRepository({
+    rawExport: {
+      findMany: async () => [
+        { dataset: "Passing", payload: [{ rosterId: 17, passingYds: 410, passingTDs: 5 }] },
+        { dataset: "Passing", payload: [{ rosterId: 18, passingYds: 201 }] }
+      ]
+    },
+    player: {
+      findMany: async () => [
+        { id: "player-17", externalId: "17", name: "Josh Allen", team: { externalId: "1", abbreviation: "BUF" } }
+      ]
+    }
+  });
+
+  const leaders = await repository.listStatLeaders({ databaseId: "league-1", players: [], teams: [{ externalId: "1", abbr: "BUF" }] });
+  assert.equal(leaders[0].title, "Passing");
+  assert.equal(leaders[0].leaders[0].name, "Josh Allen");
+  assert.equal(leaders[0].leaders[0].value, 410);
 });
 
 

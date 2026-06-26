@@ -14,6 +14,24 @@ const memoryRepository = {
   })),
   getLeague: (id) => leagues.get(id),
   getTeam: (league, id) => league.teams.find((team) => team.id === id),
+  listStatLeaders: (league, limit = 5) => [{
+    key: "players",
+    title: "Top Players",
+    metric: "Overall",
+    leaders: league.players
+      .slice()
+      .sort((a, b) => (b.overall || 0) - (a.overall || 0))
+      .slice(0, limit)
+      .map((player) => ({
+        playerId: player.id,
+        name: player.name,
+        team: league.teams.find((team) => team.id === player.teamId)?.abbr || null,
+        metric: "Overall",
+        value: player.overall || 0,
+        secondaryMetric: player.position,
+        secondaryValue: null
+      }))
+  }],
   listMembers: (league) => (league.members || []).map((membership) => ({
     ...membership,
     team: league.teams.find((team) => team.id === membership.teamId) || null

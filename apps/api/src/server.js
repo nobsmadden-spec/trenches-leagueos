@@ -412,6 +412,11 @@ async function leagueRoute(request, response, url, identity) {
   }))) ?? true;
   if (resource === "media") return sendJson(response, 200, league.media || []) ?? true;
   if (resource === "standings") return sendJson(response, 200, standingsByDivision(league.teams)) ?? true;
+  if (resource === "stat-leaders") {
+    const limit = Math.min(Number(url.searchParams.get("limit") || 5), 25);
+    const leaders = repository.listStatLeaders ? await repository.listStatLeaders(league, limit) : [];
+    return sendJson(response, 200, leaders) ?? true;
+  }
   if (resource === "playoff-race") return sendJson(response, 200, playoffRace(league.teams)) ?? true;
   if (resource === "power-rankings") return sendJson(response, 200, powerRankings(league.teams)) ?? true;
   if (resource === "teams") return sendJson(response, 200, league.teams) ?? true;
