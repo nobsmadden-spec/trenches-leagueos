@@ -236,6 +236,50 @@ test("Prisma trade center lists durable trades with assets", async () => {
   assert.equal(trades[0].teamBAssets[0].value, 518);
 });
 
+test("Prisma recognition activations are listed and audited", async () => {
+  const calls = { created: null, audit: null };
+  const client = {
+    recognitionActivation: {
+      findMany: async ({ where, orderBy }) => {
+        calls.findMany = { where, orderBy };
+        return [{
+          perkId: "offensive-plan",
+          name: "Offensive Game Plan",
+          lane: "Impact",
+          cost: 6,
+          activatedAt: new Date("2026-06-26T12:00:00Z"),
+          metadata: { detail: "Attack script" }
+        }];
+      }
+    },
+    $transaction: async (operation) => operation({
+      recognitionActivation: {
+        create: async ({ data }) => {
+          calls.created = data;
+          return { id: "activation-1", ...data };
+        }
+      },
+      auditLog: { create: async ({ data }) => { calls.audit = data; } }
+    })
+  };
+  const repository = createPrismaRepository(client);
+  const league = { databaseId: "league-1" };
+  const activations = await repository.activateRecognitionPerk(league, "user-1", {
+    id: "offensive-plan",
+    name: "Offensive Game Plan",
+    lane: "Impact",
+    cost: 6,
+    detail: "Attack script"
+  });
+
+  assert.equal(calls.created.perkId, "offensive-plan");
+  assert.equal(calls.created.cost, 6);
+  assert.equal(calls.audit.action, "recognition.perk_activated");
+  assert.equal(calls.findMany.where.userId, "user-1");
+  assert.equal(activations[0].id, "offensive-plan");
+  assert.equal(activations[0].activatedAt, "2026-06-26T12:00:00.000Z");
+});
+
 test("Prisma import recording writes datasets, raw exports, and audit metadata", async () => {
   const calls = { datasets: [], rawExports: [], audit: null, transactionOptions: null };
   const transaction = {

@@ -422,9 +422,9 @@ function baseRecognitionFor(league) {
   };
 }
 
-function recognitionFor(league, identity) {
+function recognitionFor(league, identity, savedActivations) {
   const base = JSON.parse(JSON.stringify(baseRecognitionFor(league)));
-  const activations = runtimeRecognition.get(recognitionKey(league, identity)) || [];
+  const activations = savedActivations || runtimeRecognition.get(recognitionKey(league, identity)) || [];
   const balances = { ...(base.balances || {}) };
   const activeIds = new Set(activations.map((activation) => activation.id));
   base.perks = (base.perks || []).map((perk) => {
@@ -440,8 +440,15 @@ function recognitionFor(league, identity) {
   return base;
 }
 
-function activateRecognitionPerk(league, identity, perkId) {
-  const current = recognitionFor(league, identity);
+async function recognitionView(league, identity) {
+  const savedActivations = repository.listRecognitionActivations
+    ? await repository.listRecognitionActivations(league, identity?.id)
+    : null;
+  return recognitionFor(league, identity, savedActivations);
+}
+
+async function activateRecognitionPerk(league, identity, perkId) {
+  const current = await recognitionView(league, identity);
   const perk = current.perks.find((entry) => entry.id === perkId);
   if (!perk) throw new Error("Recognition perk not found.");
   if (perk.status === "locked") throw new Error("This perk is locked right now.");
@@ -449,6 +456,9 @@ function activateRecognitionPerk(league, identity, perkId) {
   const lane = String(perk.lane || "").toLowerCase();
   const balance = Number(current.balances?.[lane] || 0);
   if (balance < Number(perk.cost || 0)) throw new Error(`Not enough ${perk.lane} points for this perk.`);
+  if (repository.activateRecognitionPerk) {
+    return recognitionFor(league, identity, await repository.activateRecognitionPerk(league, identity?.id, perk));
+  }
   const key = recognitionKey(league, identity);
   const activation = { id: perk.id, name: perk.name, lane: perk.lane, cost: perk.cost, activatedAt: new Date().toISOString() };
   runtimeRecognition.set(key, [...(runtimeRecognition.get(key) || []), activation]);
@@ -485,13 +495,13 @@ async function leagueRoute(request, response, url, identity) {
   }
   if (resource === "recognition") {
     if (!hasLeagueRole(identity, league.id, "coach")) return sendJson(response, identity ? 403 : 401, { error: "League membership required" }) ?? true;
-    return sendJson(response, 200, recognitionFor(league, identity)) ?? true;
+    return sendJson(response, 200, await recognitionView(league, identity)) ?? true;
   }
   if (resource === "recognition/perks" && request.method === "POST") {
     if (!hasLeagueRole(identity, league.id, "coach")) return sendJson(response, identity ? 403 : 401, { error: "League membership required" }) ?? true;
     try {
       const body = await readJson(request);
-      return sendJson(response, 201, activateRecognitionPerk(league, identity, body.perkId)) ?? true;
+      return sendJson(response, 201, await activateRecognitionPerk(league, identity, body.perkId)) ?? true;
     } catch (error) {
       return sendJson(response, 400, { error: "Unable to activate perk", detail: error.message }) ?? true;
     }

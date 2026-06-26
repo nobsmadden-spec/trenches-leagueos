@@ -155,6 +155,17 @@ function normalizeTrade(row) {
   };
 }
 
+function normalizeRecognitionActivation(row) {
+  return {
+    id: row.perkId,
+    name: row.name,
+    lane: row.lane,
+    cost: row.cost,
+    activatedAt: row.activatedAt?.toISOString?.() || row.activatedAt,
+    metadata: row.metadata || null
+  };
+}
+
 const gameStatuses = new Set(["UNSCHEDULED", "SCHEDULED", "PLAYED", "FAIR_SIM", "FORCE_WIN_HOME", "FORCE_WIN_AWAY", "ADMIN_REVIEW"]);
 
 function datasetPayload(datasets, name) {
@@ -574,6 +585,34 @@ export function createPrismaRepository(client = prismaClient()) {
         return updated;
       });
       return trade ? normalizeTrade(trade) : null;
+    },
+    async listRecognitionActivations(league, userId) {
+      if (!userId) return [];
+      const activations = await client.recognitionActivation.findMany({
+        where: { leagueId: league.databaseId, userId },
+        orderBy: { activatedAt: "desc" }
+      });
+      return activations.map(normalizeRecognitionActivation);
+    },
+    async activateRecognitionPerk(league, userId, perk) {
+      if (!userId) throw new Error("Sign in before activating perks.");
+      await client.$transaction(async (transaction) => {
+        const created = await transaction.recognitionActivation.create({
+          data: {
+            leagueId: league.databaseId,
+            userId,
+            perkId: perk.id,
+            name: perk.name,
+            lane: perk.lane,
+            cost: Number(perk.cost || 0),
+            metadata: { detail: perk.detail || null }
+          }
+        });
+        await transaction.auditLog.create({
+          data: { leagueId: league.databaseId, actorUserId: userId, action: "recognition.perk_activated", entityType: "RecognitionActivation", entityId: created.id, metadata: { perkId: perk.id, lane: perk.lane, cost: perk.cost } }
+        });
+      });
+      return this.listRecognitionActivations(league, userId);
     },
     async updateMembership(league, membershipId, changes, actorUserId) {
       const data = {};

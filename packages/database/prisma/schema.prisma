@@ -75,6 +75,7 @@ model User {
   createdLeagues League[]           @relation("LeagueCreator")
   auditEvents    AuditLog[]          @relation("AuditActor")
   submittedTrades Trade[]
+  recognitionActivations RecognitionActivation[]
 }
 
 model Session {
@@ -109,6 +110,7 @@ model League {
   players        Player[]
   teamSnapshots  TeamSeasonSnapshot[]
   trades         Trade[]
+  recognitionActivations RecognitionActivation[]
 }
 
 model LeagueMembership {
@@ -295,6 +297,23 @@ model TradeAsset {
   trade     Trade     @relation(fields: [tradeId], references: [id], onDelete: Cascade)
 
   @@index([tradeId, side])
+}
+
+model RecognitionActivation {
+  id          String   @id @default(cuid())
+  leagueId    String
+  userId      String
+  perkId      String
+  name        String
+  lane        String
+  cost        Int      @default(0)
+  activatedAt DateTime @default(now())
+  metadata    Json?
+  league      League   @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([leagueId, userId, perkId])
+  @@index([leagueId, userId, activatedAt])
 }
 
 model ImportRun {
