@@ -35,6 +35,7 @@ function teamLogoImg(abbr, size = 40) {
 }
 // ─────────────────────────────────────────────────────────────────────────────
 const $ = (selector) => document.querySelector(selector);
+const escapeHtml = (value = "") => String(value).replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" })[character]);
 const record = (team = {}) => Number.isFinite(Number(team.wins)) && Number.isFinite(Number(team.losses)) ? `${team.wins}-${team.losses}${team.ties ? `-${team.ties}` : ""}` : "--";
 const formatStat = (value) => Number.isInteger(value) ? value.toLocaleString() : Number(value).toLocaleString(undefined, { maximumFractionDigits: 1 });
 let currentRole = "coach";
@@ -42,6 +43,7 @@ let workspace;
 let tradeCache = [];
 let tradeAssets = [];
 let tradeFilter = "all";
+let mediaDraftCache = [];
 let teamCache = [];
 let matchupCache = [];
 let matchupFilter = "all";
@@ -523,18 +525,34 @@ document.addEventListener("click", (event) => {
 });
 
 async function loadMedia() {
-  const [posts, drafts] = await Promise.all([api("/media"), api("/media-drafts")]);
-  $("#media-drafts").innerHTML = drafts.map((draft) => `<article class="media-draft"><div class="media-draft-heading"><span>${draft.type}</span><strong>${draft.channel}</strong></div><h2>${draft.title}</h2><pre>${draft.body}</pre><button class="text-button" type="button" data-media-copy="${draft.id}">Copy Draft</button></article>`).join("");
-  $("#media-grid").innerHTML = posts.map((post) => `<article class="media-card"><div class="media-type">${post.type}</div><h2>${post.title}</h2><p>${post.summary}</p><div class="media-footer"><span class="content-status ${post.status}">${post.status}</span><button>${post.status === "draft" ? "Continue Draft" : "Read Story"}</button></div></article>`).join("");
+  const draftTarget = $("#media-drafts");
+  const postTarget = $("#media-grid");
+  try {
+    const drafts = await api("/media-drafts");
+    mediaDraftCache = drafts;
+    draftTarget.innerHTML = drafts.length ? drafts.map((draft) => `<article class="media-draft"><div class="media-draft-heading"><span>${escapeHtml(draft.type)}</span><strong>${escapeHtml(draft.channel)}</strong></div><h2>${escapeHtml(draft.title)}</h2><pre>${escapeHtml(draft.body)}</pre><button class="text-button" type="button" data-media-copy="${escapeHtml(draft.id)}">Copy Draft</button></article>`).join("") : `<p class="muted">Announcement drafts will appear after league data syncs.</p>`;
+  } catch (error) {
+    mediaDraftCache = [];
+    draftTarget.innerHTML = `<p class="muted">Announcement cards are waiting on the latest API deploy.</p>`;
+  }
+  try {
+    const posts = await api("/media");
+    postTarget.innerHTML = posts.length ? posts.map((post) => `<article class="media-card"><div class="media-type">${post.type}</div><h2>${post.title}</h2><p>${post.summary}</p><div class="media-footer"><span class="content-status ${post.status}">${post.status}</span><button>${post.status === "draft" ? "Continue Draft" : "Read Story"}</button></div></article>`).join("") : `<p class="empty">Published media posts will appear here after the first story is drafted.</p>`;
+  } catch (error) {
+    postTarget.innerHTML = `<p class="empty">Media posts could not load: ${error.message}</p>`;
+  }
 }
 
 async function copyMediaDraft(draftId) {
-  const drafts = await api("/media-drafts");
-  const draft = drafts.find((item) => item.id === draftId);
+  const draft = mediaDraftCache.find((item) => item.id === draftId);
   if (!draft) return;
-  await navigator.clipboard.writeText(draft.body);
   const button = document.querySelector(`[data-media-copy="${draftId}"]`);
-  if (button) button.textContent = "Copied";
+  try {
+    await navigator.clipboard.writeText(draft.body);
+    if (button) button.textContent = "Copied";
+  } catch {
+    if (button) button.textContent = "Copy failed";
+  }
 }
 
 async function loadOffice() {
