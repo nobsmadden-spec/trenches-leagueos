@@ -5,6 +5,8 @@ const formatStat = (value) => Number.isInteger(value) ? value.toLocaleString() :
 let currentRole = "coach";
 let workspace;
 let tradeCache = [];
+let teamCache = [];
+let selectedTeamId = null;
 document.body.dataset.role = currentRole;
 
 function receiverUrl() {
@@ -68,6 +70,12 @@ function setView(name) {
 document.querySelectorAll("[data-view]").forEach((button) => button.addEventListener("click", () => setView(button.dataset.view)));
 document.querySelectorAll("[data-view-target]").forEach((button) => button.addEventListener("click", () => setView(button.dataset.viewTarget)));
 document.addEventListener("click", (event) => {
+  const teamProfile = event.target.closest("[data-team-profile]");
+  if (teamProfile) {
+    selectedTeamId = teamProfile.dataset.teamProfile;
+    setView("team");
+    return;
+  }
   const action = event.target.closest("[data-action-target]");
   if (action) setView(action.dataset.actionTarget);
 });
@@ -128,7 +136,7 @@ function renderDashboard(league) {
 async function loadStandings() {
   const [standings, statLeaders] = await Promise.all([api("/standings"), api("/stat-leaders")]);
   $("#stat-leaders-grid").innerHTML = statLeaders.length ? statLeaders.map((category) => `<article class="stat-leader-card"><div class="stat-leader-title"><span>${category.title}</span><strong>${category.metric}</strong></div>${category.leaders.map((leader, index) => `<div class="stat-leader-row"><span class="seed">${index + 1}</span><div><strong>${leader.name}</strong><small>${leader.team || "FA"}${leader.secondaryValue !== null && leader.secondaryValue !== undefined ? ` · ${leader.secondaryValue} ${leader.secondaryMetric}` : ""}</small></div><b>${formatStat(leader.value)}</b></div>`).join("")}</article>`).join("") : `<p class="empty">Stat leaders will appear after weekly Snallabot stat exports arrive.</p>`;
-  $("#standings-grid").innerHTML = Object.entries(standings).map(([division, teams]) => `<article class="division-card"><h3>${division}</h3><div class="standing-row header"><span>Team</span><span>Record</span><span>PF</span><span>Diff</span></div>${teams.map((team) => `<div class="standing-row"><strong>${team.name}</strong><span>${record(team)}</span><span>${team.pointsFor}</span><span>${team.pointsFor - team.pointsAgainst > 0 ? "+" : ""}${team.pointsFor - team.pointsAgainst}</span></div>`).join("")}</article>`).join("");
+  $("#standings-grid").innerHTML = Object.entries(standings).map(([division, teams]) => `<article class="division-card"><h3>${division}</h3><div class="standing-row header"><span>Team</span><span>Record</span><span>PF</span><span>Diff</span></div>${teams.map((team) => `<button class="standing-row standing-team" data-team-profile="${team.id}"><strong>${team.name}</strong><span>${record(team)}</span><span>${team.pointsFor}</span><span>${team.pointsFor - team.pointsAgainst > 0 ? "+" : ""}${team.pointsFor - team.pointsAgainst}</span></button>`).join("")}</article>`).join("");
 }
 
 async function loadPlayers(query = "") {
@@ -136,15 +144,29 @@ async function loadPlayers(query = "") {
   $("#player-results").innerHTML = players.length ? players.map((player) => `<article class="player-card" data-position="${player.position}"><div class="player-top"><div><h3>${player.name}</h3><p>${player.team.name}</p></div><div class="ovr">${player.overall}<small>OVR</small></div></div><div class="player-meta"><span>${player.position}</span><span>${player.devTrait}</span><span>AGE ${player.age}</span></div><div class="player-stat"><span>${player.statLabel}</span><strong>${player.statValue.toLocaleString()}</strong></div></article>`).join("") : `<p class="empty">No players match “${query}”.</p>`;
 }
 
-async function loadTeam() {
-  const teamId = workspace?.team?.id || "buf";
+async function loadTeam(nextTeamId = selectedTeamId) {
+  if (!teamCache.length) teamCache = await api("/teams");
+  const teamId = nextTeamId || workspace?.team?.id || teamCache[0]?.id || "buf";
+  selectedTeamId = teamId;
+  const picker = $("#team-picker");
+  picker.innerHTML = teamCache.map((team) => `<option value="${team.id}" ${team.id === teamId ? "selected" : ""}>${team.abbr} · ${team.name}</option>`).join("");
   const team = await api(`/teams/${teamId}`);
   const opponentGame = team.schedule.find((game) => game.status !== "played");
   const opponent = opponentGame && (opponentGame.homeTeamId === team.id ? opponentGame.awayTeam : opponentGame.homeTeam);
+  const pointDiff = team.pointsFor - team.pointsAgainst;
+  const roster = team.roster.slice().sort((a, b) => (b.overall || 0) - (a.overall || 0));
+  const recordLine = `${record(team)} · ${team.conference} ${team.division}`;
   const command = $("#team-command");
   command.classList.remove("skeleton");
-  command.innerHTML = `<section class="team-identity" style="--team-color:${team.color}"><div class="team-monogram">${team.abbr}</div><div><p>${team.conference} ${team.division}</p><h2>${team.name}</h2><span>${team.owner || "Open team"} · ${record(team)}</span></div><div class="team-overall"><strong>${team.overall ?? "--"}</strong><small>OVR</small></div></section><div class="team-stat-grid"><article><span>Cap Available</span><strong>$${((team.capAvailable ?? 0) / 1000000).toFixed(1)}M</strong></article><article><span>Offense Rank</span><strong>#${team.offenseRank ?? "--"}</strong></article><article><span>Defense Rank</span><strong>#${team.defenseRank ?? "--"}</strong></article><article><span>Point Diff</span><strong>${team.pointsFor - team.pointsAgainst > 0 ? "+" : ""}${team.pointsFor - team.pointsAgainst}</strong></article></div><div class="team-columns"><section class="panel"><div class="panel-heading"><div><span>Next assignment</span><h2>${opponent ? `vs. ${opponent.name}` : "Schedule clear"}</h2></div></div><p class="team-detail">${opponentGame?.scheduledAt || "A game time still needs to be confirmed."}</p><button class="primary-button">Open Game Thread</button></section><section class="panel"><div class="panel-heading"><div><span>Roster room</span><h2>Key Personnel</h2></div></div>${team.roster.length ? team.roster.map((player) => `<div class="roster-line"><span>${player.position}</span><strong>${player.name}</strong><b>${player.overall}</b></div>`).join("") : `<p class="muted">Full roster arrives with the EA importer.</p>`}<div class="draft-picks">${team.draftPicks.map((pick) => `<span>${pick}</span>`).join("")}</div></section></div>`;
+  command.innerHTML = `<section class="team-identity" style="--team-color:${team.color}"><div class="team-monogram">${team.abbr}</div><div><p>${recordLine}</p><h2>${team.name}</h2><span>${team.owner || "Open team"}</span></div><div class="team-overall"><strong>${team.overall ?? "--"}</strong><small>OVR</small></div></section><div class="team-stat-grid"><article><span>Points For</span><strong>${team.pointsFor}</strong></article><article><span>Points Against</span><strong>${team.pointsAgainst}</strong></article><article><span>Point Diff</span><strong>${pointDiff > 0 ? "+" : ""}${pointDiff}</strong></article><article><span>Roster Size</span><strong>${team.roster.length}</strong></article></div><div class="team-columns"><section class="panel"><div class="panel-heading"><div><span>Next assignment</span><h2>${opponent ? `${opponentGame.homeTeamId === team.id ? "vs." : "at"} ${opponent.name}` : "Schedule clear"}</h2></div></div><p class="team-detail">${opponentGame?.scheduledAt || "A game time still needs to be confirmed."}</p><div class="team-schedule">${team.schedule.length ? team.schedule.map((game) => {
+    const isHome = game.homeTeamId === team.id;
+    const opponentTeam = isHome ? game.awayTeam : game.homeTeam;
+    const score = game.status === "played" ? `${game.awayScore ?? "-"}-${game.homeScore ?? "-"}` : game.scheduledAt || "Not scheduled";
+    return `<div class="schedule-line"><span>W${game.week || "--"}</span><strong>${isHome ? "vs." : "at"} ${opponentTeam.name}</strong><b>${score}</b></div>`;
+  }).join("") : `<p class="muted">Schedule arrives with the league export.</p>`}</div><button class="primary-button">Open Game Thread</button></section><section class="panel"><div class="panel-heading"><div><span>Roster room</span><h2>Key Personnel</h2></div><span class="muted">Top 12 by OVR</span></div>${roster.length ? roster.slice(0, 12).map((player) => `<div class="roster-line"><span>${player.position}</span><strong>${player.name}</strong><b>${player.overall ?? "--"}</b></div>`).join("") : `<p class="muted">Full roster arrives with the EA importer.</p>`}<div class="draft-picks">${team.draftPicks.map((pick) => `<span>${pick}</span>`).join("")}</div></section></div>`;
 }
+
+$("#team-picker").addEventListener("change", (event) => loadTeam(event.target.value));
 
 function renderTrades(filter = "all") {
   const visible = tradeCache.filter((trade) => filter === "all" || (filter === "committee" ? trade.status === "committee_review" : filter === "completed" ? trade.status === "approved" : trade.status === filter));
