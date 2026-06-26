@@ -64,6 +64,9 @@ test("health and league summary APIs respond", async () => {
   assert.ok(recognition.json.breakdown.some((item) => item.lane === "Impact"));
   assert.ok(recognition.json.scorecard.some((item) => item.label === "Stream or proof"));
   assert.ok(recognition.json.perks.some((perk) => perk.name === "Offensive Game Plan"));
+  const mediaDrafts = await get("/api/leagues/the-trenches/media-drafts");
+  assert.equal(mediaDrafts.status, 200);
+  assert.ok(mediaDrafts.json.some((draft) => draft.channel === "#announcements" && draft.body.includes("Week 11")));
   const me = await get("/api/me");
   assert.equal(me.json.authenticated, true);
 });

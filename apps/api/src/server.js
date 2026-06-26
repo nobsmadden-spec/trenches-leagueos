@@ -248,6 +248,53 @@ function enrichGame(league, game) {
   return { ...game, awayTeam: repository.getTeam(league, game.awayTeamId), homeTeam: repository.getTeam(league, game.homeTeamId) };
 }
 
+function recordLine(team = {}) {
+  return Number.isFinite(Number(team.wins)) && Number.isFinite(Number(team.losses)) ? `${team.wins}-${team.losses}${team.ties ? `-${team.ties}` : ""}` : "--";
+}
+
+async function mediaDraftsFor(league, identity) {
+  const openGames = league.games.filter((game) => game.status !== "played");
+  const featuredGame = enrichGame(league, league.games.find((game) => game.featured) || openGames[0] || league.games[0]);
+  const statLeaders = repository.listStatLeaders ? await repository.listStatLeaders(league, 3) : [];
+  const leaderCategory = statLeaders[0];
+  const recognition = hasLeagueRole(identity, league.id, "coach") ? await recognitionView(league, identity) : null;
+  const topRanked = powerRankings(league.teams).slice(0, 3);
+  const matchupTitle = featuredGame?.awayTeam && featuredGame?.homeTeam ? `${featuredGame.awayTeam.name} at ${featuredGame.homeTeam.name}` : "Featured matchup";
+  const leaderLines = leaderCategory?.leaders?.length
+    ? leaderCategory.leaders.map((leader, index) => `${index + 1}. ${leader.name} - ${leader.value} ${leaderCategory.metric}${leader.team ? `, ${leader.team}` : ""}`).join("\n")
+    : topRanked.map((team, index) => `${index + 1}. ${team.name} - ${recordLine(team)}, ${team.powerScore} power score`).join("\n");
+  return [
+    {
+      id: "weekly-announcement",
+      type: "Announcement",
+      channel: "#announcements",
+      title: `Week ${league.week} League Brief`,
+      body: `Week ${league.week} League Brief\n\n${openGames.length} open matchup${openGames.length === 1 ? "" : "s"} are on the board.\nGame of the Week: ${matchupTitle}.\n\nChecklist: schedule early, communicate in the game thread, post stream/proof, and finish before advance.`
+    },
+    {
+      id: "matchup-watch",
+      type: "Matchup Watch",
+      channel: "#game-threads",
+      title: matchupTitle,
+      body: `${matchupTitle}\n\n${featuredGame?.awayTeam?.abbr || "AWY"} ${recordLine(featuredGame?.awayTeam)} vs ${featuredGame?.homeTeam?.abbr || "HME"} ${recordLine(featuredGame?.homeTeam)}\nKickoff: ${featuredGame?.scheduledAt || "time still needs to be confirmed"}\n\nQuick read: watch the first clean possession, turnover margin, and fourth-quarter clock management.`
+    },
+    {
+      id: "stat-leader-spotlight",
+      type: "Stat Leaders",
+      channel: "#stat-leaders",
+      title: leaderCategory ? `${leaderCategory.title} Leaders` : "Power Ranking Leaders",
+      body: `${leaderCategory ? `${leaderCategory.title} Leaders` : "Power Ranking Leaders"} - Week ${league.week}\n\n${leaderLines}\n\nUse this as the weekly spotlight post after the latest Snallabot export lands.`
+    },
+    {
+      id: "recognition-update",
+      type: "Recognition",
+      channel: "#announcements",
+      title: "Recognition Update",
+      body: `Recognition Update - Week ${league.week}\n\n${(recognition?.leaders || []).slice(0, 3).map((leader) => `${leader.lane}: ${leader.name} (${leader.points})`).join("\n") || "Recognition leaders will appear after coach events are tracked."}\n\nWeekly challenge: ${recognition?.challenge?.title || "Clean Week Checklist"} - ${recognition?.challenge?.detail || "Schedule, communicate, stream, and finish on time."}`
+    }
+  ];
+}
+
 function assetValue(asset) {
   if (typeof asset === "object") return Number(asset.value || 0);
   const text = String(asset || "");
@@ -712,6 +759,7 @@ async function leagueRoute(request, response, url, identity) {
   }
   if (resource === "trade-assets") return sendJson(response, 200, tradeAssetBoard(league)) ?? true;
   if (resource === "media") return sendJson(response, 200, league.media || []) ?? true;
+  if (resource === "media-drafts") return sendJson(response, 200, await mediaDraftsFor(league, identity)) ?? true;
   if (resource === "standings") return sendJson(response, 200, standingsByDivision(league.teams)) ?? true;
   if (resource === "stat-leaders") {
     const limit = Math.min(Number(url.searchParams.get("limit") || 5), 25);
