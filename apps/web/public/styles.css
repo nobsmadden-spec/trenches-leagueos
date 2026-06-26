@@ -450,6 +450,33 @@ h1, h2, strong { font-family: "Barlow Condensed", sans-serif; text-transform: up
   background: rgba(255,255,255,.03);
   font-size: 12px;
 }
+.thread-outcomes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+.thread-outcomes button {
+  border: 1px solid var(--line);
+  background: rgba(255,255,255,.06);
+  color: var(--ink);
+  padding: 12px;
+  cursor: pointer;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  font-size: 10px;
+}
+.thread-outcomes button:hover { border-color: var(--gold); color: var(--gold); }
+.thread-outcomes .success-button { background: rgba(88,199,139,.16); border-color: rgba(88,199,139,.45); color: var(--green); }
+.thread-outcomes .danger-button { background: rgba(239,68,68,.14); border-color: rgba(239,68,68,.45); color: #f87171; }
+.thread-outcome-result {
+  border: 1px solid var(--line);
+  background: rgba(8,11,16,.5);
+  padding: 12px;
+  font-size: 12px;
+}
+.thread-outcome-result.complete { border-color: rgba(88,199,139,.45); color: var(--green); }
+.thread-outcome-result.danger { border-color: rgba(239,68,68,.45); color: #f87171; }
 
 /* ── Dashboard grid ── */
 .dashboard-grid { display: grid; grid-template-columns: 1.25fr .75fr; gap: 22px; margin-top: 22px; }
@@ -786,6 +813,65 @@ h1, h2, strong { font-family: "Barlow Condensed", sans-serif; text-transform: up
 .member-header { color: var(--muted); text-transform: uppercase; letter-spacing: .1em; font-size: 8px; }
 .receiver-heading { margin: 0 0 10px; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .12em; }
 .receiver-attempt { border-color: rgba(236,91,42,.35); }
+.strike-board { display: grid; gap: 16px; }
+.strike-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.strike-summary article {
+  border: 1px solid var(--line);
+  background: rgba(8,11,16,.35);
+  padding: 16px;
+}
+.strike-summary span {
+  color: var(--muted);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .1em;
+}
+.strike-summary strong {
+  display: block;
+  color: var(--gold);
+  font: 800 38px "Barlow Condensed";
+  margin-top: 6px;
+}
+.strike-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.strike-columns section, .communication-flags {
+  border: 1px solid var(--line);
+  background: rgba(8,11,16,.25);
+  padding: 16px;
+}
+.strike-columns h3, .communication-flags h3 {
+  margin: 0 0 12px;
+  color: var(--ink);
+  font-size: 18px;
+}
+.strike-case {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px 12px;
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+}
+.strike-case:first-of-type { border-top: 0; padding-top: 0; }
+.strike-case strong { display: block; font: 700 13px Inter; text-transform: none; }
+.strike-case small { display: block; color: var(--muted); margin-top: 4px; font-size: 10px; }
+.strike-case b {
+  color: #f87171;
+  font: 800 24px "Barlow Condensed";
+}
+.strike-case p {
+  grid-column: 1/-1;
+  color: var(--gold);
+  margin: 0;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+.communication-flags span {
+  display: block;
+  border-top: 1px solid var(--line);
+  padding: 10px 0;
+  color: var(--muted);
+  font-size: 12px;
+}
 
 /* ── Platform / feature cards ── */
 .platform-intro { display: grid; grid-template-columns: 1.1fr .9fr; gap: 80px; align-items: end; border-bottom: 1px solid var(--line); margin-bottom: 30px; padding-bottom: 30px; }
@@ -946,6 +1032,7 @@ footer {
   .matchup-actions .text-button:last-child { text-align: left; }
   .thread-team-grid { grid-template-columns: 1fr; }
   .thread-team { grid-template-columns: 1fr; }
+  .strike-summary, .strike-columns { grid-template-columns: 1fr; }
   .team-badge { width: 56px; height: 56px; font-size: 21px; }
   .match-team h3 { font-size: 21px; }
   .versus strong { font-size: 38px; }

@@ -41,6 +41,17 @@ export const demoLeague = {
       { id: "a6", priority: "normal", label: "Review two open-team applications", detail: "Patriots vacancy", target: "office" }
     ]
   },
+  strikeBoard: {
+    rules: { fairSim: 0.5, forceWin: 1, determinedStrike: 1.5, hardLimit: 5 },
+    cases: [
+      { teamId: "phi", coach: "Philadelphia Eagles Coach", points: 1.5, reason: "Needs Week 11 scheduling response", flags: ["silent week", "no kickoff time"] },
+      { teamId: "gb", coach: "Green Bay Packers Coach", points: 1, reason: "Opponent waiting on confirmation", flags: ["thread activity"] },
+      { teamId: "nyg", coach: "New York Giants Coach", points: 0.5, reason: "Recent fair sim credit used", flags: ["fair sim"] }
+    ],
+    communicationFlags: [
+      { teamId: "phi", label: "No confirmed time", detail: "Eagles at Packers is still unscheduled." }
+    ]
+  },
   trades: [
     { id: "t1", status: "committee_review", submittedAt: "2026-06-22T14:10:00-04:00", teamA: "buf", teamB: "dal", teamAAssets: ["2027 1st", "WR Keon Coleman"], teamBAssets: ["RE Micah Parsons"], votesFor: 2, votesNeeded: 3 },
     { id: "t2", status: "negotiating", submittedAt: "2026-06-21T20:00:00-04:00", teamA: "mia", teamB: "gb", teamAAssets: ["2027 2nd"], teamBAssets: ["HB MarShawn Lloyd"], votesFor: 0, votesNeeded: 3 },

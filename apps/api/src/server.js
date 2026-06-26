@@ -246,6 +246,40 @@ function enrichGame(league, game) {
   return { ...game, awayTeam: repository.getTeam(league, game.awayTeamId), homeTeam: repository.getTeam(league, game.homeTeamId) };
 }
 
+function buildStrikeBoard(league) {
+  const configured = league.strikeBoard || {};
+  const rules = configured.rules || { fairSim: 0.5, forceWin: 1, determinedStrike: 1.5, hardLimit: 5 };
+  const cases = configured.cases || league.games
+    .filter((game) => ["unscheduled", "admin_review", "fair_sim", "force_win_home", "force_win_away"].includes(game.status))
+    .flatMap((game) => {
+      const away = repository.getTeam(league, game.awayTeamId);
+      const home = repository.getTeam(league, game.homeTeamId);
+      const points = game.status === "fair_sim" ? rules.fairSim : game.status?.startsWith("force_win") ? rules.forceWin : 1;
+      return [away, home].filter(Boolean).map((team) => ({
+        teamId: team.id,
+        coach: team.owner || `${team.name} Coach`,
+        points,
+        reason: `${away?.abbr || "Away"} at ${home?.abbr || "Home"} needs commissioner attention`,
+        flags: [gameStatusLabel(game.status)]
+      }));
+    });
+  const activeTeamIds = new Set(cases.map((entry) => entry.teamId));
+  return {
+    season: league.season,
+    week: league.week,
+    rules,
+    atRisk: cases.filter((entry) => Number(entry.points || 0) >= 3),
+    activeCases: cases.filter((entry) => Number(entry.points || 0) < 3),
+    communicationFlags: configured.communicationFlags || [],
+    cleanTeams: league.teams.filter((team) => !activeTeamIds.has(team.id)).map((team) => ({ id: team.id, abbr: team.abbr, name: team.name, owner: team.owner || null })).slice(0, 32)
+  };
+}
+
+function gameStatusLabel(status) {
+  const labels = { played: "Game completed", scheduled: "Scheduled", unscheduled: "Needs time", fair_sim: "Fair sim", force_win_home: "Force home", force_win_away: "Force away", admin_review: "Admin review" };
+  return labels[status] || status || "Unknown";
+}
+
 function workspaceFor(league, role, identity) {
   const activeRole = role === "commissioner" ? "commissioner" : "coach";
   const membership = identity?.memberships?.find((entry) => entry.leagueId === league.id && entry.status === "active");
@@ -407,6 +441,10 @@ async function leagueRoute(request, response, url, identity) {
     }
   }
   if (resource === "sync-health") return sendJson(response, 200, league.syncHealth) ?? true;
+  if (resource === "strike-board") {
+    if (!hasLeagueRole(identity, league.id, "commissioner")) return sendJson(response, identity ? 403 : 401, { error: "Commissioner role required" }) ?? true;
+    return sendJson(response, 200, buildStrikeBoard(league)) ?? true;
+  }
   if (resource === "trades") return sendJson(response, 200, (league.trades || []).map((trade) => ({
     ...trade, teamA: repository.getTeam(league, trade.teamA), teamB: repository.getTeam(league, trade.teamB)
   }))) ?? true;

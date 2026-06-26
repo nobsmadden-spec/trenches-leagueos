@@ -8,6 +8,7 @@ let tradeCache = [];
 let teamCache = [];
 let matchupCache = [];
 let matchupFilter = "all";
+let activeThreadGameId = null;
 let selectedTeamId = null;
 document.body.dataset.role = currentRole;
 
@@ -73,6 +74,11 @@ function setView(name) {
 document.querySelectorAll("[data-view]").forEach((button) => button.addEventListener("click", () => setView(button.dataset.view)));
 document.querySelectorAll("[data-view-target]").forEach((button) => button.addEventListener("click", () => setView(button.dataset.viewTarget)));
 document.addEventListener("click", (event) => {
+  const threadOutcome = event.target.closest("[data-thread-outcome]");
+  if (threadOutcome) {
+    recordThreadOutcome(threadOutcome.dataset.threadOutcome);
+    return;
+  }
   const threadPreview = event.target.closest("[data-thread-preview]");
   if (threadPreview) {
     openThreadPreview(threadPreview.dataset.threadPreview);
@@ -123,15 +129,38 @@ function threadTeam(team = {}, label) {
 function openThreadPreview(gameId) {
   const game = matchupCache.find((item) => String(item.id) === String(gameId) || String(item.externalId) === String(gameId));
   if (!game) return;
+  activeThreadGameId = game.id || game.externalId;
   const away = game.awayTeam || {};
   const home = game.homeTeam || {};
   const isFinal = game.status === "played";
   const scoreLine = isFinal ? `Final score: ${away.abbr || "Away"} ${game.awayScore ?? "-"}, ${home.abbr || "Home"} ${game.homeScore ?? "-"}` : `Kickoff: ${game.scheduledAt || "time still needs to be confirmed"}`;
   $("#thread-title").textContent = `${away.abbr || "Away"} at ${home.abbr || "Home"}`;
-  $("#thread-preview-body").innerHTML = `<div class="thread-copy"><p class="eyebrow">${gameStatusLabel(game)} · Week ${game.week || "--"}</p><h3>${away.name || "Away Team"} at ${home.name || "Home Team"}</h3><p>${scoreLine}</p></div><div class="thread-team-grid">${threadTeam(away, "Away coach")}${threadTeam(home, "Home coach")}</div><div class="thread-checklist"><strong>Thread checklist</strong><span>Tag both coaches</span><span>Confirm kickoff window</span><span>Post stream or proof link</span><span>${isFinal ? "Mark final and archive" : "Track activity until final"}</span></div>`;
+  $("#thread-preview-body").innerHTML = `<div class="thread-copy"><p class="eyebrow">${gameStatusLabel(game)} · Week ${game.week || "--"}</p><h3>${away.name || "Away Team"} at ${home.name || "Home Team"}</h3><p>${scoreLine}</p></div><div class="thread-team-grid">${threadTeam(away, "Away coach")}${threadTeam(home, "Home coach")}</div><div class="thread-outcomes"><button class="success-button" type="button" data-thread-outcome="played">Game Completed</button><button type="button" data-thread-outcome="fair_sim">Fair Sim</button><button type="button" data-thread-outcome="force_win_away">FW ${away.abbr || "Away"}</button><button type="button" data-thread-outcome="force_win_home">FW ${home.abbr || "Home"}</button><button type="button" data-thread-outcome="cpu">CPU Game</button><button class="danger-button" type="button" data-thread-outcome="strike_away">Strike ${away.abbr || "Away"}</button><button class="danger-button" type="button" data-thread-outcome="strike_home">Strike ${home.abbr || "Home"}</button></div><div id="thread-outcome-result" class="thread-outcome-result muted">Choose an outcome to draft the commissioner action.</div><div class="thread-checklist"><strong>Thread checklist</strong><span>Tag both coaches</span><span>Confirm kickoff window</span><span>Post stream or proof link</span><span>${isFinal ? "Mark final and archive" : "Track activity until final"}</span></div>`;
   const panel = $("#game-thread-preview");
   panel.classList.remove("hidden");
   panel.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function recordThreadOutcome(outcome) {
+  const game = matchupCache.find((item) => String(item.id) === String(activeThreadGameId) || String(item.externalId) === String(activeThreadGameId));
+  if (!game) return;
+  const away = game.awayTeam || {};
+  const home = game.homeTeam || {};
+  const labels = {
+    played: "Game marked complete. Next version can post the final confirmation to Discord.",
+    fair_sim: "Fair sim drafted. Both coaches should be treated as agreeing the game will not be played.",
+    force_win_away: `${away.name || "Away team"} force-win drafted for commissioner review.`,
+    force_win_home: `${home.name || "Home team"} force-win drafted for commissioner review.`,
+    cpu: "CPU outcome drafted. No strike should be applied.",
+    strike_away: `${away.name || "Away team"} strike drafted from thread evidence.`,
+    strike_home: `${home.name || "Home team"} strike drafted from thread evidence.`
+  };
+  if (["played", "fair_sim", "force_win_away", "force_win_home"].includes(outcome)) {
+    game.status = outcome;
+    loadMatchups(matchupFilter);
+  }
+  $("#thread-outcome-result").textContent = labels[outcome] || "Outcome drafted.";
+  $("#thread-outcome-result").className = `thread-outcome-result ${outcome.includes("strike") ? "danger" : "complete"}`;
 }
 
 function seedRows(teams) {
@@ -271,19 +300,30 @@ async function loadMedia() {
 }
 
 async function loadOffice() {
-  const [office, members, teams, imports, receiverAttempts] = await Promise.all([
+  const [office, members, teams, imports, receiverAttempts, strikeBoard] = await Promise.all([
     currentRole === "commissioner" ? workspace : api("/workspace?role=commissioner"),
     api("/members"),
     api("/teams"),
     api("/import-runs"),
-    api("/receiver-attempts")
+    api("/receiver-attempts"),
+    api("/strike-board")
   ]);
   $("#office-actions").innerHTML = actionRows(office.actions);
   renderSync($("#office-sync"), office.syncHealth);
+  renderStrikeBoard(strikeBoard);
   $("#receiver-attempts").innerHTML = receiverAttempts.length ? `<h3 class="receiver-heading">Latest Snallabot Receiver Calls</h3>${receiverAttempts.map((attempt) => `<article class="import-run receiver-attempt"><div class="import-run-head"><strong>${attempt.status}</strong><span class="trade-status ${attempt.status === "accepted" ? "approved" : "denied"}">${attempt.statusCode}</span></div><small>${new Date(attempt.receivedAt).toLocaleString()}</small><p class="muted">${attempt.source || "snallabot-receiver"}</p><p class="muted">${attempt.message}</p><details><summary>Payload preview</summary><code>${JSON.stringify(attempt.preview)}</code></details></article>`).join("")}` : "";
   $("#import-history").innerHTML = imports.length ? imports.map((run) => `<article class="import-run"><div class="import-run-head"><strong>${run.source}</strong><span class="trade-status ${run.status}">${run.status}</span></div><small>${run.completedAt ? new Date(run.completedAt).toLocaleString() : "Not completed"}</small><div class="import-datasets">${run.datasets.map((dataset) => `<span>${dataset.name}: ${dataset.records}</span>`).join("")}</div><details><summary>Raw fingerprints</summary>${run.rawExports.map((raw) => `<code>${raw.dataset} · ${raw.sha256.slice(0, 12)} · ${raw.storageKey}</code>`).join("") || "<p>No raw exports recorded.</p>"}</details></article>`).join("") : `<p class="empty">No imports have run yet.</p>`;
   $("#open-teams").innerHTML = office.openTeams.map((team) => `<article><span class="mini-badge" style="--team-color:${team.color}">${team.abbr}</span><div><strong>${team.name}</strong><small>${record(team)} · ${team.conference} ${team.division}</small></div><button>Review applicants</button></article>`).join("");
   $("#member-table").innerHTML = `<div class="member-row member-header"><span>Coach</span><span>Team</span><span>Role</span><span>Status</span><span></span></div>${members.map((member) => `<div class="member-row" data-member-id="${member.id}"><strong>${member.displayName}</strong><select data-field="teamId"><option value="">Unassigned</option>${teams.map((team) => `<option value="${team.id}" ${member.teamId === team.id ? "selected" : ""}>${team.abbr}</option>`).join("")}</select><select data-field="role"><option value="coach" ${member.role === "coach" ? "selected" : ""}>Coach</option><option value="commissioner" ${member.role === "commissioner" ? "selected" : ""}>Commissioner</option></select><select data-field="status"><option value="active" ${member.status === "active" ? "selected" : ""}>Active</option><option value="pending" ${member.status === "pending" ? "selected" : ""}>Pending</option><option value="suspended" ${member.status === "suspended" ? "selected" : ""}>Suspended</option><option value="removed" ${member.status === "removed" ? "selected" : ""}>Removed</option></select><button class="member-save">Save</button></div>`).join("")}`;
+}
+
+function strikeCaseRows(cases, emptyText) {
+  return cases.length ? cases.map((entry) => `<article class="strike-case"><div><strong>${entry.coach || entry.teamId}</strong><small>${entry.reason || "Active case"}</small></div><b>${Number(entry.points || 0).toFixed(1)}</b><p>${(entry.flags || []).join(" · ") || "No flags"}</p></article>`).join("") : `<p class="muted">${emptyText}</p>`;
+}
+
+function renderStrikeBoard(board) {
+  $("#strike-board-status").textContent = `Week ${board.week || "--"} · hard limit ${board.rules?.hardLimit || 5}`;
+  $("#strike-board").innerHTML = `<div class="strike-summary"><article><span>At Risk</span><strong>${board.atRisk?.length || 0}</strong></article><article><span>Active Cases</span><strong>${board.activeCases?.length || 0}</strong></article><article><span>Clean Teams</span><strong>${board.cleanTeams?.length || 0}</strong></article></div><div class="strike-columns"><section><h3>At Risk / Removal Range</h3>${strikeCaseRows(board.atRisk || [], "No teams are currently at 3.0 or higher.")}</section><section><h3>Active Strike Cases</h3>${strikeCaseRows(board.activeCases || [], "No active strike cases below watch range.")}</section></div><div class="communication-flags"><h3>Communication Flags</h3>${(board.communicationFlags || []).length ? board.communicationFlags.map((flag) => `<span>${flag.label}: ${flag.detail}</span>`).join("") : `<p class="muted">No separate communication flags right now.</p>`}</div>`;
 }
 
 $("#member-table").addEventListener("click", async (event) => {
