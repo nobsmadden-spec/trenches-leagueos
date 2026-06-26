@@ -208,6 +208,25 @@ function renderWorkspace(nextWorkspace) {
   renderSync($("#sync-datasets"), workspace.syncHealth);
 }
 
+function renderRecognition(recognition) {
+  $("#recognition-week").textContent = `Week ${recognition.week || "--"} · ${recognition.phase || "Season"}`;
+  const balances = recognition.balances || {};
+  const leaders = recognition.leaders || [];
+  const perks = recognition.perks || [];
+  const challenge = recognition.challenge || {};
+  $("#recognition-hub").innerHTML = `<div class="recognition-balances">${["activity", "impact", "legacy"].map((lane) => `<article><span>${lane}</span><strong>${Number(balances[lane] || 0)}</strong><small>available</small></article>`).join("")}</div><div class="recognition-columns"><section><h3>Recognition Leaders</h3>${leaders.map((leader) => `<div class="recognition-leader"><span>${leader.lane}</span><div><strong>${leader.name}</strong><small>${leader.detail || "League recognition"}</small></div><b>${leader.points}</b></div>`).join("") || `<p class="muted">Recognition leaders will appear after coach events are tracked.</p>`}</section><section><h3>Weekly Challenge</h3><article class="challenge-card"><strong>${challenge.title || "Clean Week Checklist"}</strong><p>${challenge.detail || "Schedule, communicate, stream, and finish on time."}</p><small>${challenge.bonus || "Bonuses will appear here."}</small></article></section></div><div class="perk-grid">${perks.map((perk) => `<button class="perk-card ${perk.status === "locked" ? "locked" : ""}" type="button" title="${perk.detail || ""}"><span>${perk.lane}</span><strong>${perk.name}</strong><small>${perk.status === "locked" ? "Locked" : `Cost ${perk.cost}`}</small></button>`).join("")}</div>`;
+}
+
+async function loadRecognition() {
+  const target = $("#recognition-hub");
+  if (!target) return;
+  try {
+    renderRecognition(await api("/recognition"));
+  } catch (error) {
+    target.innerHTML = `<p class="muted">Recognition is not available yet: ${error.message}</p>`;
+  }
+}
+
 function renderDashboard(league) {
   $("#season-label").textContent = `${league.gameType} · ${league.season} SEASON`;
   $("#week-number").textContent = `WEEK ${league.week}`;
@@ -227,6 +246,7 @@ function renderDashboard(league) {
   $("#power-rankings").innerHTML = (league.powerRankings || []).map((team) => `<li><div class="rank-team"><strong>${team.name}</strong><small>${record(team)} · ${team.pointsFor - team.pointsAgainst >= 0 ? "+" : ""}${team.pointsFor - team.pointsAgainst} DIFF</small></div><span>${team.powerScore}</span></li>`).join("");
   $("#playoff-picture").innerHTML = Object.entries(league.playoffRace || {}).map(([conference, race]) => `<div class="conference"><h3>${conference}</h3>${seedRows(race.playoff)}<p class="hunt-label">IN THE HUNT</p>${seedRows(race.inTheHunt)}</div>`).join("");
   loadDashboardMatchups();
+  loadRecognition();
   renderWorkspace(league.workspace);
 }
 

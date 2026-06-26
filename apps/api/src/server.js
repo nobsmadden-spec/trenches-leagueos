@@ -389,6 +389,34 @@ function workspaceFor(league, role, identity) {
   };
 }
 
+function recognitionFor(league) {
+  if (league.recognition) return league.recognition;
+  const ranked = powerRankings(league.teams);
+  const best = ranked[0] || league.teams[0] || {};
+  const challenger = ranked[1] || league.teams[1] || best;
+  return {
+    week: league.week,
+    phase: Number(league.week || 0) >= 10 ? "Late Regular Season" : "Regular Season",
+    balances: { activity: 0, impact: 0, legacy: 0 },
+    leaders: [
+      { lane: "Activity", name: best.name || "League leader", points: Math.max(0, Number(best.wins || 0) * 2 - Number(best.losses || 0)), detail: "Generated from current record until recognition events are recorded." },
+      { lane: "Impact", name: challenger.name || "Contender", points: Math.max(0, Number(challenger.pointsFor || 0) - Number(challenger.pointsAgainst || 0)), detail: "Point differential snapshot from imported standings." },
+      { lane: "Legacy", name: league.name, points: league.teams.length, detail: "League-wide participation baseline." }
+    ],
+    challenge: {
+      title: "Clean Week Checklist",
+      detail: "Schedule early, respond in thread, post stream or proof, and finish on time.",
+      bonus: "Featured matchup winner earns extra Impact once recognition events are tracked."
+    },
+    perks: [
+      { id: "streak-shield", lane: "Activity", name: "Streak Shield", cost: 5, status: "available", detail: "Protect one borderline activity week." },
+      { id: "offensive-plan", lane: "Impact", name: "Offensive Game Plan", cost: 6, status: "available", detail: "Prepare an attack script for your next opponent." },
+      { id: "tendency-report", lane: "Impact", name: "Opponent Tendency Report", cost: 5, status: "available", detail: "Review opponent style and counter points." },
+      { id: "scout-focus", lane: "Legacy", name: "Scouting Focus Pack", cost: 6, status: "locked", detail: "Unlocks once scouting imports are connected." }
+    ]
+  };
+}
+
 async function leagueRoute(request, response, url, identity) {
   const match = url.pathname.match(/^\/api\/leagues\/([^/]+)(?:\/(.+))?$/);
   if (!match) return false;
@@ -416,6 +444,10 @@ async function leagueRoute(request, response, url, identity) {
     const requestedRole = url.searchParams.get("role") === "commissioner" ? "commissioner" : "coach";
     if (!hasLeagueRole(identity, league.id, requestedRole)) return sendJson(response, identity ? 403 : 401, { error: "Insufficient league role" }) ?? true;
     return sendJson(response, 200, workspaceFor(league, requestedRole, identity)) ?? true;
+  }
+  if (resource === "recognition") {
+    if (!hasLeagueRole(identity, league.id, "coach")) return sendJson(response, identity ? 403 : 401, { error: "League membership required" }) ?? true;
+    return sendJson(response, 200, recognitionFor(league)) ?? true;
   }
   if (resource === "members") {
     if (!hasLeagueRole(identity, league.id, "commissioner")) return sendJson(response, identity ? 403 : 401, { error: "Commissioner role required" }) ?? true;

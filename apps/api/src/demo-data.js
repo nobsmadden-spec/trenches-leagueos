@@ -52,6 +52,29 @@ export const demoLeague = {
       { teamId: "phi", label: "No confirmed time", detail: "Eagles at Packers is still unscheduled." }
     ]
   },
+  recognition: {
+    week: 11,
+    phase: "Late Regular Season",
+    balances: { activity: 9, impact: 11, legacy: 6 },
+    leaders: [
+      { lane: "Activity", name: "KC Chiefs", points: 17, detail: "Posts, streams, and game thread response" },
+      { lane: "Impact", name: "Coach Devin", points: 38, detail: "Featured wins and league office usage" },
+      { lane: "Legacy", name: "Biggest FIVE est", points: 32, detail: "Long-term rivalry and playoff moments" }
+    ],
+    challenge: {
+      title: "Yardage Avalanche",
+      detail: "450+ total team yards earns +1 Impact. 550+ total yards earns +2.",
+      bonus: "Game of the Week winner gets double Impact."
+    },
+    perks: [
+      { id: "streak-shield", lane: "Activity", name: "Streak Shield", cost: 5, status: "available", detail: "Protects one borderline week from breaking your activity streak." },
+      { id: "strike-cushion", lane: "Activity", name: "Strike Cushion", cost: 8, status: "available", detail: "Downgrades one determined strike into a lighter fault if it hits this week." },
+      { id: "offensive-plan", lane: "Impact", name: "Offensive Game Plan", cost: 6, status: "available", detail: "Adds an attack script with matchup leverage and counter calls." },
+      { id: "defensive-plan", lane: "Impact", name: "Defensive Game Plan", cost: 6, status: "available", detail: "Adds a defensive script from opponent style and stress points." },
+      { id: "tendency-report", lane: "Impact", name: "Opponent Tendency Report", cost: 5, status: "available", detail: "Adds coach-DNA, field leverage, and Madden-specific counters." },
+      { id: "scout-focus", lane: "Legacy", name: "Scouting Focus Pack", cost: 6, status: "locked", detail: "Discounted reveals all week for top-need positions." }
+    ]
+  },
   trades: [
     { id: "t1", status: "committee_review", submittedAt: "2026-06-22T14:10:00-04:00", teamA: "buf", teamB: "dal", teamAAssets: ["2027 1st", "WR Keon Coleman"], teamBAssets: ["RE Micah Parsons"], votesFor: 2, votesNeeded: 3 },
     { id: "t2", status: "negotiating", submittedAt: "2026-06-21T20:00:00-04:00", teamA: "mia", teamB: "gb", teamAAssets: ["2027 2nd"], teamBAssets: ["HB MarShawn Lloyd"], votesFor: 0, votesNeeded: 3 },

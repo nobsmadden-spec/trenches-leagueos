@@ -533,6 +533,98 @@ h1, h2, strong { font-family: "Barlow Condensed", sans-serif; text-transform: up
 }
 .dataset-check { color: var(--green); font-weight: 800; }
 .dataset-row strong { color: var(--muted); font: 600 10px Inter; }
+.recognition-panel { margin: -26px 0 48px; }
+.recognition-hub { display: grid; gap: 16px; }
+.recognition-balances {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+.recognition-balances article {
+  border: 1px solid var(--line);
+  background: linear-gradient(135deg, rgba(214,169,75,.1), rgba(8,11,16,.35));
+  padding: 16px;
+}
+.recognition-balances span,
+.recognition-leader span,
+.perk-card span {
+  color: var(--muted);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: .12em;
+}
+.recognition-balances strong {
+  display: block;
+  color: var(--gold);
+  font-size: 34px;
+  margin-top: 5px;
+}
+.recognition-balances small { color: var(--muted); font-size: 10px; }
+.recognition-columns {
+  display: grid;
+  grid-template-columns: 1.2fr .8fr;
+  gap: 14px;
+}
+.recognition-columns section,
+.challenge-card {
+  border: 1px solid var(--line);
+  background: rgba(8,11,16,.35);
+  padding: 16px;
+}
+.recognition-columns h3 {
+  margin: 0 0 12px;
+  font-size: 18px;
+}
+.recognition-leader {
+  display: grid;
+  grid-template-columns: 80px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  border-top: 1px solid var(--line);
+  padding: 11px 0;
+}
+.recognition-leader strong,
+.challenge-card strong,
+.perk-card strong {
+  display: block;
+  font: 800 13px Inter, sans-serif;
+  text-transform: none;
+}
+.recognition-leader small,
+.challenge-card p,
+.challenge-card small {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+.recognition-leader b { color: var(--gold); }
+.challenge-card p { margin: 10px 0; }
+.perk-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px;
+}
+.perk-card {
+  text-align: left;
+  border: 1px solid rgba(88,199,139,.35);
+  background: rgba(88,199,139,.08);
+  color: var(--ink);
+  padding: 14px;
+  cursor: pointer;
+}
+.perk-card small {
+  display: block;
+  color: var(--green);
+  font-size: 10px;
+  margin-top: 8px;
+}
+.perk-card.locked {
+  border-color: var(--line);
+  background: rgba(148,163,184,.06);
+  opacity: .7;
+  cursor: not-allowed;
+}
+.perk-card.locked small { color: var(--muted); }
 
 /* ── Panels ── */
 .panel {
@@ -1145,7 +1237,7 @@ footer {
   .hero { min-height: 430px; align-items: flex-start; flex-direction: column; justify-content: center; }
   .week-panel { width: 100%; }
   .hero-badges { flex-wrap: wrap; }
-  .dashboard-grid, .workspace-grid, .conference-grid, .standings-grid, .stat-leaders-grid, .matchup-grid, .matchup-mini-grid, .player-grid, .feature-grid, .platform-intro, .team-columns, .media-grid, .office-grid, .trade-summary { grid-template-columns: 1fr; }
+  .dashboard-grid, .workspace-grid, .conference-grid, .standings-grid, .stat-leaders-grid, .matchup-grid, .matchup-mini-grid, .player-grid, .feature-grid, .platform-intro, .team-columns, .media-grid, .office-grid, .trade-summary, .recognition-balances, .recognition-columns { grid-template-columns: 1fr; }
   .office-wide { grid-column: span 1; }
   .team-page-heading { display: block; }
   .team-picker { min-width: 0; margin-top: 18px; }
@@ -1164,6 +1256,9 @@ footer {
   .thread-team-grid { grid-template-columns: 1fr; }
   .thread-team { grid-template-columns: 1fr; }
   .strike-summary, .strike-columns { grid-template-columns: 1fr; }
+  .recognition-panel { margin-top: -26px; }
+  .recognition-leader { grid-template-columns: 1fr auto; }
+  .recognition-leader span { grid-column: 1/-1; }
   .trade-attention-card { align-items: flex-start; flex-direction: column; }
   .trade-builder, .trade-preview-card { grid-template-columns: 1fr; }
   .team-badge { width: 56px; height: 56px; font-size: 21px; }

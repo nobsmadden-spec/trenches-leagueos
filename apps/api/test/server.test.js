@@ -58,6 +58,10 @@ test("health and league summary APIs respond", async () => {
   const tradeAssets = await get("/api/leagues/the-trenches/trade-assets");
   assert.equal(tradeAssets.status, 200);
   assert.ok(tradeAssets.json[0].assets.length > 0);
+  const recognition = await get("/api/leagues/the-trenches/recognition");
+  assert.equal(recognition.status, 200);
+  assert.ok(recognition.json.leaders.length > 0);
+  assert.ok(recognition.json.perks.some((perk) => perk.name === "Offensive Game Plan"));
   const me = await get("/api/me");
   assert.equal(me.json.authenticated, true);
 });
