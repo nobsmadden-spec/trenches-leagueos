@@ -1055,6 +1055,33 @@ h1, h2, strong { font-family: "Barlow Condensed", sans-serif; text-transform: up
 .vote-progress strong { color: var(--ink); }
 
 /* ── Media ── */
+.media-drafts-panel { margin-bottom: 22px; }
+.media-drafts { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+.media-draft {
+  border: 1px solid var(--line);
+  background: rgba(8,11,16,.35);
+  padding: 16px;
+}
+.media-draft-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: .14em;
+}
+.media-draft-heading strong { color: var(--gold); font: 800 9px Inter, sans-serif; }
+.media-draft h2 { font-size: 22px; margin: 12px 0; }
+.media-draft pre {
+  white-space: pre-wrap;
+  color: var(--muted);
+  font: 12px/1.65 Inter, sans-serif;
+  background: rgba(2,6,23,.42);
+  border: 1px solid var(--line);
+  padding: 12px;
+  min-height: 170px;
+}
 .media-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 18px; }
 .media-card { border: 1px solid var(--line); background: var(--panel); overflow: hidden; padding: 22px; display: flex; flex-direction: column; min-height: 250px; }
 .media-card:hover { border-color: rgba(214,169,75,.25); }
@@ -1374,4 +1401,40 @@ footer {
   .trade-swap { transform: rotate(90deg); }
   .member-table { overflow-x: auto; }
   .member-row { min-width: 650px; }
+}
+
+/* ── NFL Team Logo Images ───────────────────────────────────────────────── */
+.team-logo-img {
+  object-fit: contain;
+  display: block;
+  filter: drop-shadow(0 1px 3px rgba(0,0,0,.35));
+  transition: transform .15s ease;
+}
+.team-badge .team-logo-img {
+  width: 36px;
+  height: 36px;
+  border-radius: 4px;
+}
+.team-monogram .team-logo-img {
+  width: 64px;
+  height: 64px;
+  border-radius: 8px;
+}
+.mini-badge .team-logo-img {
+  width: 28px;
+  height: 28px;
+  border-radius: 3px;
+}
+.team-badge:hover .team-logo-img,
+.mini-badge:hover .team-logo-img {
+  transform: scale(1.08);
+}
+/* Standings table team logo */
+.standings-team-logo {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+  vertical-align: middle;
+  margin-right: 6px;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,.3));
 }

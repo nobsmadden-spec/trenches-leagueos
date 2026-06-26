@@ -1,4 +1,39 @@
 const leagueId = "the-trenches";
+
+// ── NFL Team Logo & Color Helpers ────────────────────────────────────────────
+const NFL_LOGO_MAP = {
+  ari:"ari",atl:"atl",bal:"bal",buf:"buf",car:"car",chi:"chi",cin:"cin",cle:"cle",
+  dal:"dal",den:"den",det:"det",gb:"gb",hou:"hou",ind:"ind",jax:"jax",kc:"kc",
+  lac:"lac",lar:"lar",lv:"lv",mia:"mia",min:"min",ne:"ne",no:"no",nyg:"nyg",
+  nyj:"nyj",phi:"phi",pit:"pit",sea:"sea",sf:"sf",tb:"tb",ten:"ten",
+  wsh:"wsh",was:"wsh",wsh:"wsh",
+};
+const NFL_COLOR_MAP = {
+  ari:"#97233F",atl:"#A71930",bal:"#241773",buf:"#00338D",car:"#0085CA",
+  chi:"#0B162A",cin:"#FB4F14",cle:"#311D00",dal:"#003594",den:"#FB4F14",
+  det:"#0076B6",gb:"#203731",hou:"#03202F",ind:"#002C5F",jax:"#101820",
+  kc:"#E31837",lac:"#0080C6",lar:"#003594",lv:"#000000",mia:"#008E97",
+  min:"#4F2683",ne:"#002244",no:"#D3BC8D",nyg:"#0B2265",nyj:"#125740",
+  phi:"#004C54",pit:"#FFB612",sea:"#002244",sf:"#AA0000",tb:"#D50A0A",
+  ten:"#0C2340",wsh:"#5A1414",was:"#5A1414",
+};
+function getNFLLogo(abbr) {
+  if (!abbr) return null;
+  const key = (abbr || "").toLowerCase();
+  const mapped = NFL_LOGO_MAP[key];
+  return mapped ? `/assets/logos/nfl/${mapped}.png` : null;
+}
+function getNFLColor(abbr, fallback) {
+  if (!abbr) return fallback || "#64748b";
+  const key = (abbr || "").toLowerCase();
+  return NFL_COLOR_MAP[key] || fallback || "#64748b";
+}
+function teamLogoImg(abbr, size = 40) {
+  const src = getNFLLogo(abbr);
+  if (!src) return `<span class="team-abbr-text">${(abbr||"").toUpperCase()}</span>`;
+  return `<img src="${src}" alt="${(abbr||"").toUpperCase()}" class="team-logo-img" width="${size}" height="${size}" loading="lazy" onerror="this.style.display='none';this.nextSibling&&(this.nextSibling.style.display='')">`;
+}
+// ─────────────────────────────────────────────────────────────────────────────
 const $ = (selector) => document.querySelector(selector);
 const record = (team = {}) => Number.isFinite(Number(team.wins)) && Number.isFinite(Number(team.losses)) ? `${team.wins}-${team.losses}${team.ties ? `-${team.ties}` : ""}` : "--";
 const formatStat = (value) => Number.isInteger(value) ? value.toLocaleString() : Number(value).toLocaleString(undefined, { maximumFractionDigits: 1 });
@@ -96,6 +131,11 @@ document.addEventListener("click", (event) => {
     activateRecognitionPerk(recognitionPerk.dataset.recognitionPerk);
     return;
   }
+  const mediaCopy = event.target.closest("[data-media-copy]");
+  if (mediaCopy) {
+    copyMediaDraft(mediaCopy.dataset.mediaCopy);
+    return;
+  }
   const threadOutcome = event.target.closest("[data-thread-outcome]");
   if (threadOutcome) {
     recordThreadOutcome(threadOutcome.dataset.threadOutcome);
@@ -126,7 +166,7 @@ $("#role-switch").addEventListener("click", async () => {
 });
 
 function gameTeam(team) {
-  return `<div class="match-team"><div class="team-badge" style="border-color:${team.color}">${team.abbr}</div><h3>${team.name}</h3><p>${record(team)} · ${team.conference} ${team.division}</p></div>`;
+  return `<div class="match-team"><div class="team-badge" style="border-color:${getNFLColor(team.abbr, team.color)}">${teamLogoImg(team.abbr, 36)}<span class="team-abbr-text" style="display:none">${team.abbr}</span></div><h3>${team.name}</h3><p>${record(team)} · ${team.conference} ${team.division}</p></div>`;
 }
 
 function gameStatusLabel(game) {
@@ -260,7 +300,7 @@ function renderDashboard(league) {
     featured.innerHTML = `<p class="empty">Featured matchup will appear after schedule data imports.</p>`;
   }
   const finals = league.recentFinals || [];
-  $("#recent-finals").innerHTML = finals.length ? finals.map((final) => `<div class="score-row"><div class="score-teams"><div class="score-team"><span class="mini-badge" style="--team-color:${final.awayTeam.color}">${final.awayTeam.abbr}</span>${final.awayTeam.name}</div><div class="score-team"><span class="mini-badge" style="--team-color:${final.homeTeam.color}">${final.homeTeam.abbr}</span>${final.homeTeam.name}</div></div><div class="score-values"><span>${final.awayScore}</span><span>${final.homeScore}</span></div></div>`).join("") : `<p class="muted">Final scores will appear after completed games import.</p>`;
+  $("#recent-finals").innerHTML = finals.length ? finals.map((final) => `<div class="score-row"><div class="score-teams"><div class="score-team"><span class="mini-badge" style="--team-color:${getNFLColor(final.awayTeam.abbr, final.awayTeam.color)}">${teamLogoImg(final.awayTeam.abbr, 28)}</span>${final.awayTeam.name}</div><div class="score-team"><span class="mini-badge" style="--team-color:${getNFLColor(final.homeTeam.abbr, final.homeTeam.color)}">${teamLogoImg(final.homeTeam.abbr, 28)}</span>${final.homeTeam.name}</div></div><div class="score-values"><span>${final.awayScore}</span><span>${final.homeScore}</span></div></div>`).join("") : `<p class="muted">Final scores will appear after completed games import.</p>`;
   $("#power-rankings").innerHTML = (league.powerRankings || []).map((team) => `<li><div class="rank-team"><strong>${team.name}</strong><small>${record(team)} · ${team.pointsFor - team.pointsAgainst >= 0 ? "+" : ""}${team.pointsFor - team.pointsAgainst} DIFF</small></div><span>${team.powerScore}</span></li>`).join("");
   $("#playoff-picture").innerHTML = Object.entries(league.playoffRace || {}).map(([conference, race]) => `<div class="conference"><h3>${conference}</h3>${seedRows(race.playoff)}<p class="hunt-label">IN THE HUNT</p>${seedRows(race.inTheHunt)}</div>`).join("");
   loadDashboardMatchups();
@@ -318,7 +358,7 @@ async function loadTeam(nextTeamId = selectedTeamId) {
   const recordLine = `${record(team)} · ${team.conference} ${team.division}`;
   const command = $("#team-command");
   command.classList.remove("skeleton");
-  command.innerHTML = `<section class="team-identity" style="--team-color:${team.color}"><div class="team-monogram">${team.abbr}</div><div><p>${recordLine}</p><h2>${team.name}</h2><span>${team.owner || "Open team"}</span></div><div class="team-overall"><strong>${team.overall ?? "--"}</strong><small>OVR</small></div></section><div class="team-stat-grid"><article><span>Points For</span><strong>${team.pointsFor}</strong></article><article><span>Points Against</span><strong>${team.pointsAgainst}</strong></article><article><span>Point Diff</span><strong>${pointDiff > 0 ? "+" : ""}${pointDiff}</strong></article><article><span>Roster Size</span><strong>${team.roster.length}</strong></article></div><div class="team-columns"><section class="panel"><div class="panel-heading"><div><span>Next assignment</span><h2>${opponent ? `${opponentGame.homeTeamId === team.id ? "vs." : "at"} ${opponent.name}` : "Schedule clear"}</h2></div></div><p class="team-detail">${opponentGame?.scheduledAt || "A game time still needs to be confirmed."}</p><div class="team-schedule">${team.schedule.length ? team.schedule.map((game) => {
+  command.innerHTML = `<section class="team-identity" style="--team-color:${getNFLColor(team.abbr, team.color)}"><div class="team-monogram">${teamLogoImg(team.abbr, 64)}</div><div><p>${recordLine}</p><h2>${team.name}</h2><span>${team.owner || "Open team"}</span></div><div class="team-overall"><strong>${team.overall ?? "--"}</strong><small>OVR</small></div></section><div class="team-stat-grid"><article><span>Points For</span><strong>${team.pointsFor}</strong></article><article><span>Points Against</span><strong>${team.pointsAgainst}</strong></article><article><span>Point Diff</span><strong>${pointDiff > 0 ? "+" : ""}${pointDiff}</strong></article><article><span>Roster Size</span><strong>${team.roster.length}</strong></article></div><div class="team-columns"><section class="panel"><div class="panel-heading"><div><span>Next assignment</span><h2>${opponent ? `${opponentGame.homeTeamId === team.id ? "vs." : "at"} ${opponent.name}` : "Schedule clear"}</h2></div></div><p class="team-detail">${opponentGame?.scheduledAt || "A game time still needs to be confirmed."}</p><div class="team-schedule">${team.schedule.length ? team.schedule.map((game) => {
     const isHome = game.homeTeamId === team.id;
     const opponentTeam = isHome ? game.awayTeam : game.homeTeam;
     const score = game.status === "played" ? `${game.awayScore ?? "-"}-${game.homeScore ?? "-"}` : game.scheduledAt || "Not scheduled";
@@ -483,8 +523,18 @@ document.addEventListener("click", (event) => {
 });
 
 async function loadMedia() {
-  const posts = await api("/media");
+  const [posts, drafts] = await Promise.all([api("/media"), api("/media-drafts")]);
+  $("#media-drafts").innerHTML = drafts.map((draft) => `<article class="media-draft"><div class="media-draft-heading"><span>${draft.type}</span><strong>${draft.channel}</strong></div><h2>${draft.title}</h2><pre>${draft.body}</pre><button class="text-button" type="button" data-media-copy="${draft.id}">Copy Draft</button></article>`).join("");
   $("#media-grid").innerHTML = posts.map((post) => `<article class="media-card"><div class="media-type">${post.type}</div><h2>${post.title}</h2><p>${post.summary}</p><div class="media-footer"><span class="content-status ${post.status}">${post.status}</span><button>${post.status === "draft" ? "Continue Draft" : "Read Story"}</button></div></article>`).join("");
+}
+
+async function copyMediaDraft(draftId) {
+  const drafts = await api("/media-drafts");
+  const draft = drafts.find((item) => item.id === draftId);
+  if (!draft) return;
+  await navigator.clipboard.writeText(draft.body);
+  const button = document.querySelector(`[data-media-copy="${draftId}"]`);
+  if (button) button.textContent = "Copied";
 }
 
 async function loadOffice() {
@@ -501,7 +551,7 @@ async function loadOffice() {
   renderStrikeBoard(strikeBoard);
   $("#receiver-attempts").innerHTML = receiverAttempts.length ? `<h3 class="receiver-heading">Latest Snallabot Receiver Calls</h3>${receiverAttempts.map((attempt) => `<article class="import-run receiver-attempt"><div class="import-run-head"><strong>${attempt.status}</strong><span class="trade-status ${attempt.status === "accepted" ? "approved" : "denied"}">${attempt.statusCode}</span></div><small>${new Date(attempt.receivedAt).toLocaleString()}</small><p class="muted">${attempt.source || "snallabot-receiver"}</p><p class="muted">${attempt.message}</p><details><summary>Payload preview</summary><code>${JSON.stringify(attempt.preview)}</code></details></article>`).join("")}` : "";
   $("#import-history").innerHTML = imports.length ? imports.map((run) => `<article class="import-run"><div class="import-run-head"><strong>${run.source}</strong><span class="trade-status ${run.status}">${run.status}</span></div><small>${run.completedAt ? new Date(run.completedAt).toLocaleString() : "Not completed"}</small><div class="import-datasets">${run.datasets.map((dataset) => `<span>${dataset.name}: ${dataset.records}</span>`).join("")}</div><details><summary>Raw fingerprints</summary>${run.rawExports.map((raw) => `<code>${raw.dataset} · ${raw.sha256.slice(0, 12)} · ${raw.storageKey}</code>`).join("") || "<p>No raw exports recorded.</p>"}</details></article>`).join("") : `<p class="empty">No imports have run yet.</p>`;
-  $("#open-teams").innerHTML = office.openTeams.map((team) => `<article><span class="mini-badge" style="--team-color:${team.color}">${team.abbr}</span><div><strong>${team.name}</strong><small>${record(team)} · ${team.conference} ${team.division}</small></div><button>Review applicants</button></article>`).join("");
+  $("#open-teams").innerHTML = office.openTeams.map((team) => `<article><span class="mini-badge" style="--team-color:${getNFLColor(team.abbr, team.color)}">${teamLogoImg(team.abbr, 28)}</span><div><strong>${team.name}</strong><small>${record(team)} · ${team.conference} ${team.division}</small></div><button>Review applicants</button></article>`).join("");
   $("#member-table").innerHTML = `<div class="member-row member-header"><span>Coach</span><span>Team</span><span>Role</span><span>Status</span><span></span></div>${members.map((member) => `<div class="member-row" data-member-id="${member.id}"><strong>${member.displayName}</strong><select data-field="teamId"><option value="">Unassigned</option>${teams.map((team) => `<option value="${team.id}" ${member.teamId === team.id ? "selected" : ""}>${team.abbr}</option>`).join("")}</select><select data-field="role"><option value="coach" ${member.role === "coach" ? "selected" : ""}>Coach</option><option value="commissioner" ${member.role === "commissioner" ? "selected" : ""}>Commissioner</option></select><select data-field="status"><option value="active" ${member.status === "active" ? "selected" : ""}>Active</option><option value="pending" ${member.status === "pending" ? "selected" : ""}>Pending</option><option value="suspended" ${member.status === "suspended" ? "selected" : ""}>Suspended</option><option value="removed" ${member.status === "removed" ? "selected" : ""}>Removed</option></select><button class="member-save">Save</button></div>`).join("")}`;
 }
 
