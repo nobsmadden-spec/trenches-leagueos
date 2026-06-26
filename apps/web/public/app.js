@@ -75,6 +75,16 @@ function setView(name) {
 document.querySelectorAll("[data-view]").forEach((button) => button.addEventListener("click", () => setView(button.dataset.view)));
 document.querySelectorAll("[data-view-target]").forEach((button) => button.addEventListener("click", () => setView(button.dataset.viewTarget)));
 document.addEventListener("click", (event) => {
+  const tradeSubmit = event.target.closest("[data-trade-submit]");
+  if (tradeSubmit) {
+    submitTradeProposal();
+    return;
+  }
+  const tradeDecision = event.target.closest("[data-trade-decision]");
+  if (tradeDecision) {
+    updateTradeDecision(tradeDecision.dataset.tradeId, tradeDecision.dataset.tradeDecision);
+    return;
+  }
   const threadOutcome = event.target.closest("[data-thread-outcome]");
   if (threadOutcome) {
     recordThreadOutcome(threadOutcome.dataset.threadOutcome);
@@ -279,7 +289,12 @@ function renderTrades(filter = "all") {
   const visible = tradeCache.filter((trade) => filter === "all" || (filter === "committee" ? trade.status === "committee_review" : filter === "completed" ? trade.status === "approved" : trade.status === filter));
   $("#trade-list").innerHTML = visible.map((trade) => {
     const check = trade.valueCheck || {};
-    return `<article class="trade-card"><div class="trade-card-head"><span class="trade-status ${trade.status}">${trade.status.replaceAll("_", " ")}</span><small>${new Date(trade.submittedAt).toLocaleDateString()}</small></div><div class="trade-sides"><div><strong>${trade.teamA.name}</strong>${trade.teamAAssets.map((asset) => `<span>${asset.label || asset} <b>${asset.value || 0}</b></span>`).join("")}<em>Total ${check.teamATotal || 0}</em></div><div class="trade-swap">⇄</div><div><strong>${trade.teamB.name}</strong>${trade.teamBAssets.map((asset) => `<span>${asset.label || asset} <b>${asset.value || 0}</b></span>`).join("")}<em>Total ${check.teamBTotal || 0}</em></div></div><div class="trade-value-check ${check.withinLimit ? "approved" : "denied"}"><span>Value gap ${check.gap ?? "--"} / limit ${check.limit || 50}</span><strong>${check.withinLimit ? "Within Limit" : "Committee Flag"}</strong></div><div class="vote-progress"><span>Committee votes</span><strong>${trade.votesFor}/${trade.votesNeeded}</strong></div></article>`;
+    const actions = trade.status === "negotiating"
+      ? `<div class="trade-actions"><button data-trade-id="${trade.id}" data-trade-decision="approve">Other Coach Approves</button><button class="danger-button" data-trade-id="${trade.id}" data-trade-decision="deny">Deny</button></div>`
+      : trade.status === "committee_review"
+        ? `<div class="trade-actions"><button data-trade-id="${trade.id}" data-trade-decision="committee_approve">Committee Approves</button><button class="danger-button" data-trade-id="${trade.id}" data-trade-decision="committee_deny">Committee Denies</button></div>`
+        : "";
+    return `<article class="trade-card"><div class="trade-card-head"><span class="trade-status ${trade.status}">${trade.status.replaceAll("_", " ")}</span><small>${new Date(trade.submittedAt).toLocaleDateString()}</small></div><div class="trade-sides"><div><strong>${trade.teamA.name}</strong>${trade.teamAAssets.map((asset) => `<span>${asset.label || asset} <b>${asset.value || 0}</b></span>`).join("")}<em>Total ${check.teamATotal || 0}</em></div><div class="trade-swap">⇄</div><div><strong>${trade.teamB.name}</strong>${trade.teamBAssets.map((asset) => `<span>${asset.label || asset} <b>${asset.value || 0}</b></span>`).join("")}<em>Total ${check.teamBTotal || 0}</em></div></div><div class="trade-value-check ${check.withinLimit ? "approved" : "denied"}"><span>Value gap ${check.gap ?? "--"} / limit ${check.limit || 50}</span><strong>${check.withinLimit ? "Within Limit" : "Committee Flag"}</strong></div><div class="vote-progress"><span>Committee votes</span><strong>${trade.votesFor}/${trade.votesNeeded}</strong></div>${actions}</article>`;
   }).join("") || `<p class="empty">No trades in this stage.</p>`;
 }
 
@@ -291,12 +306,12 @@ async function loadTrades() {
 }
 
 function selectedAssets(selector) {
-  return [...$(selector).selectedOptions].map((option) => ({ label: option.textContent.replace(/\s+·\s+\d+$/, ""), value: Number(option.value || 0) }));
+  return [...$(selector).selectedOptions].map((option) => ({ label: option.textContent.replace(/\s+·\s+\d+$/, ""), value: Number(option.value || 0), type: option.dataset.assetType || "asset" }));
 }
 
 function renderAssetOptions(select, teamId) {
   const board = tradeAssets.find((entry) => entry.teamId === teamId);
-  select.innerHTML = (board?.assets || []).map((asset) => `<option value="${asset.value}">${asset.label} · ${asset.value}</option>`).join("");
+  select.innerHTML = (board?.assets || []).map((asset) => `<option value="${asset.value}" data-asset-type="${asset.type}">${asset.label} · ${asset.value}</option>`).join("");
 }
 
 function updateTradePreview() {
@@ -307,7 +322,32 @@ function updateTradePreview() {
   const gap = Math.abs(sendTotal - receiveTotal);
   const withinLimit = gap <= 50;
   $("#trade-builder-state").textContent = withinLimit ? "Value check is within limit" : "Value gap needs committee review";
-  $("#trade-preview").innerHTML = `<div class="trade-preview-card ${withinLimit ? "approved" : "denied"}"><div><span>You send</span><strong>${sendTotal}</strong><small>${send.map((asset) => asset.label).join(", ") || "No assets selected"}</small></div><div><span>You receive</span><strong>${receiveTotal}</strong><small>${receive.map((asset) => asset.label).join(", ") || "No assets selected"}</small></div><p>Value gap ${gap} ${withinLimit ? "is within the 50 point limit." : "exceeds the 50 point limit."}</p><button class="primary-button" type="button">Draft Trade Proposal</button></div>`;
+  $("#trade-preview").innerHTML = `<div class="trade-preview-card ${withinLimit ? "approved" : "denied"}"><div><span>You send</span><strong>${sendTotal}</strong><small>${send.map((asset) => asset.label).join(", ") || "No assets selected"}</small></div><div><span>You receive</span><strong>${receiveTotal}</strong><small>${receive.map((asset) => asset.label).join(", ") || "No assets selected"}</small></div><p>Value gap ${gap} ${withinLimit ? "is within the 50 point limit." : "exceeds the 50 point limit."}</p><button class="primary-button" type="button" data-trade-submit>Draft Trade Proposal</button></div>`;
+}
+
+async function submitTradeProposal() {
+  const state = $("#trade-builder-state");
+  const body = {
+    teamA: $("#trade-team-a").value,
+    teamB: $("#trade-team-b").value,
+    teamAAssets: selectedAssets("#trade-assets-a"),
+    teamBAssets: selectedAssets("#trade-assets-b")
+  };
+  state.textContent = "Drafting trade proposal...";
+  try {
+    const trade = await apiMutation("/trades", "POST", body);
+    tradeCache = [trade, ...tradeCache.filter((entry) => entry.id !== trade.id)];
+    renderTrades();
+    state.textContent = "Trade proposal drafted and waiting on the other coach.";
+  } catch (error) {
+    state.textContent = error.message;
+  }
+}
+
+async function updateTradeDecision(tradeId, action) {
+  const result = await apiMutation(`/trades/${tradeId}`, "PATCH", { action });
+  tradeCache = tradeCache.map((trade) => trade.id === tradeId ? result : trade);
+  renderTrades();
 }
 
 function renderTradeBuilder() {

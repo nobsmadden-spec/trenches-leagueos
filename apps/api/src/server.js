@@ -26,6 +26,7 @@ const host = process.env.HOST || "0.0.0.0";
 const mime = { ".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".svg": "image/svg+xml" };
 const maxExportBytes = Number(process.env.MAX_EXPORT_URL_BYTES || 5_000_000);
 const receiverAttempts = [];
+const runtimeTrades = new Map();
 
 function sendJson(response, status, body) {
   response.writeHead(status, { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" });
@@ -277,6 +278,53 @@ function enrichTrade(league, trade) {
   };
 }
 
+function tradesForLeague(league) {
+  return [...(runtimeTrades.get(league.id) || []), ...(league.trades || [])];
+}
+
+function storeRuntimeTrade(league, trade) {
+  const trades = runtimeTrades.get(league.id) || [];
+  runtimeTrades.set(league.id, [trade, ...trades]);
+  return trade;
+}
+
+function updateTradeStatus(league, tradeId, nextStatus) {
+  const runtime = runtimeTrades.get(league.id) || [];
+  const runtimeTrade = runtime.find((trade) => trade.id === tradeId);
+  if (runtimeTrade) {
+    runtimeTrade.status = nextStatus;
+    runtimeTrade.votesFor = nextStatus === "approved" ? runtimeTrade.votesNeeded : runtimeTrade.votesFor;
+    return runtimeTrade;
+  }
+  const demoTrade = league.trades?.find((trade) => trade.id === tradeId);
+  if (!demoTrade) return null;
+  demoTrade.status = nextStatus;
+  demoTrade.votesFor = nextStatus === "approved" ? demoTrade.votesNeeded : demoTrade.votesFor;
+  return demoTrade;
+}
+
+function createTradeProposal(league, body, identity) {
+  const teamA = repository.getTeam(league, body.teamA);
+  const teamB = repository.getTeam(league, body.teamB);
+  if (!teamA || !teamB) throw new Error("Choose two valid teams.");
+  if (teamA.id === teamB.id) throw new Error("A team cannot trade with itself.");
+  const teamAAssets = (body.teamAAssets || []).map(normalizeTradeAsset);
+  const teamBAssets = (body.teamBAssets || []).map(normalizeTradeAsset);
+  if (!teamAAssets.length || !teamBAssets.length) throw new Error("Each side needs at least one asset.");
+  return storeRuntimeTrade(league, {
+    id: `trade_${Date.now()}`,
+    status: "negotiating",
+    submittedAt: new Date().toISOString(),
+    submittedBy: identity?.id || null,
+    teamA: teamA.id,
+    teamB: teamB.id,
+    teamAAssets,
+    teamBAssets,
+    votesFor: 0,
+    votesNeeded: 3
+  });
+}
+
 function tradeAssetBoard(league) {
   const picks = ["2027 1st", "2027 2nd", "2027 3rd", "2028 1st", "2028 2nd", "2029 1st"];
   return league.teams.map((team) => ({
@@ -347,7 +395,7 @@ async function leagueRoute(request, response, url, identity) {
   const league = await repository.getLeague(match[1]);
   if (!league) return sendJson(response, 404, { error: "League not found" }) ?? true;
   const resource = match[2];
-  if (request.method !== "GET" && !(request.method === "PATCH" && resource?.startsWith("members/")) && !(request.method === "POST" && ["import-runs", "import-runs/from-url", "bootstrap-owner"].includes(resource))) {
+  if (request.method !== "GET" && !(request.method === "PATCH" && (resource?.startsWith("members/") || resource?.startsWith("trades/"))) && !(request.method === "POST" && ["import-runs", "import-runs/from-url", "bootstrap-owner", "trades"].includes(resource))) {
     return sendJson(response, 405, { error: "Method not allowed" }) ?? true;
   }
 
@@ -492,7 +540,27 @@ async function leagueRoute(request, response, url, identity) {
     if (!hasLeagueRole(identity, league.id, "commissioner")) return sendJson(response, identity ? 403 : 401, { error: "Commissioner role required" }) ?? true;
     return sendJson(response, 200, buildStrikeBoard(league)) ?? true;
   }
-  if (resource === "trades") return sendJson(response, 200, (league.trades || []).map((trade) => enrichTrade(league, trade))) ?? true;
+  if (resource === "trades" && request.method === "POST") {
+    if (!hasLeagueRole(identity, league.id, "coach")) return sendJson(response, identity ? 403 : 401, { error: "League membership required" }) ?? true;
+    try {
+      const trade = createTradeProposal(league, await readJson(request), identity);
+      return sendJson(response, 201, enrichTrade(league, trade)) ?? true;
+    } catch (error) {
+      return sendJson(response, 400, { error: "Unable to draft trade", detail: error.message }) ?? true;
+    }
+  }
+  if (resource?.startsWith("trades/") && request.method === "PATCH") {
+    if (!hasLeagueRole(identity, league.id, "coach")) return sendJson(response, identity ? 403 : 401, { error: "League membership required" }) ?? true;
+    const tradeId = resource.slice("trades/".length);
+    const body = await readJson(request);
+    const statusByAction = { approve: "committee_review", deny: "denied", committee_approve: "approved", committee_deny: "denied" };
+    const nextStatus = statusByAction[body.action];
+    if (!nextStatus) return sendJson(response, 400, { error: "Unsupported trade action" }) ?? true;
+    const trade = updateTradeStatus(league, tradeId, nextStatus);
+    if (!trade) return sendJson(response, 404, { error: "Trade not found" }) ?? true;
+    return sendJson(response, 200, enrichTrade(league, trade)) ?? true;
+  }
+  if (resource === "trades") return sendJson(response, 200, tradesForLeague(league).map((trade) => enrichTrade(league, trade))) ?? true;
   if (resource === "trade-assets") return sendJson(response, 200, tradeAssetBoard(league)) ?? true;
   if (resource === "media") return sendJson(response, 200, league.media || []) ?? true;
   if (resource === "standings") return sendJson(response, 200, standingsByDivision(league.teams)) ?? true;

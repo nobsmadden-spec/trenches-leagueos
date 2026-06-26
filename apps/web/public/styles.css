@@ -788,6 +788,30 @@ h1, h2, strong { font-family: "Barlow Condensed", sans-serif; text-transform: up
 .trade-value-check.approved { border-color: rgba(88,199,139,.4); color: var(--green); }
 .trade-value-check.denied { border-color: rgba(239,68,68,.45); color: #f87171; }
 .trade-value-check span { color: var(--muted); }
+.trade-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+.trade-actions button {
+  border: 1px solid rgba(88,199,139,.45);
+  background: rgba(88,199,139,.12);
+  color: var(--green);
+  padding: 10px 12px;
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+.trade-actions .danger-button {
+  border-color: rgba(239,68,68,.45);
+  background: rgba(239,68,68,.12);
+  color: #f87171;
+}
 .vote-progress { border-top: 1px solid var(--line); padding-top: 13px; color: var(--muted); font-size: 10px; }
 .vote-progress strong { color: var(--ink); }
 

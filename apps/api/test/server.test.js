@@ -100,6 +100,35 @@ test("commissioners can update a membership through the audited API contract", a
   assert.equal(updated.json.teamId, null);
 });
 
+test("coaches can draft and progress a trade proposal", async () => {
+  const drafted = await request("/api/leagues/the-trenches/trades", {
+    method: "POST",
+    body: {
+      teamA: "buf",
+      teamB: "dal",
+      teamAAssets: [{ label: "2027 1st", value: 250, type: "pick" }],
+      teamBAssets: [{ label: "RE Micah Parsons", value: 518, type: "player" }]
+    }
+  });
+  assert.equal(drafted.status, 201);
+  assert.equal(drafted.json.status, "negotiating");
+  assert.equal(drafted.json.valueCheck.withinLimit, false);
+
+  const approvedByCoach = await request(`/api/leagues/the-trenches/trades/${drafted.json.id}`, {
+    method: "PATCH",
+    body: { action: "approve" }
+  });
+  assert.equal(approvedByCoach.status, 200);
+  assert.equal(approvedByCoach.json.status, "committee_review");
+
+  const approvedByCommittee = await request(`/api/leagues/the-trenches/trades/${drafted.json.id}`, {
+    method: "PATCH",
+    body: { action: "committee_approve" }
+  });
+  assert.equal(approvedByCommittee.status, 200);
+  assert.equal(approvedByCommittee.json.status, "approved");
+});
+
 test("commissioners can record import runs and update sync health", async () => {
   const recorded = await request("/api/leagues/the-trenches/import-runs", {
     method: "POST",
