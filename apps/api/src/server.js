@@ -575,7 +575,7 @@ async function leagueRoute(request, response, url, identity) {
   const league = await repository.getLeague(match[1]);
   if (!league) return sendJson(response, 404, { error: "League not found" }) ?? true;
   const resource = match[2];
-  if (request.method !== "GET" && !(request.method === "PATCH" && (resource?.startsWith("members/") || resource?.startsWith("trades/"))) && !(request.method === "POST" && (resource === "recognition/perks" || ["import-runs", "import-runs/from-url", "bootstrap-owner", "trades"].includes(resource)))) {
+  if (request.method !== "GET" && !(request.method === "PATCH" && (resource?.startsWith("members/") || resource?.startsWith("trades/") || resource?.startsWith("games/"))) && !(request.method === "POST" && (resource === "recognition/perks" || ["import-runs", "import-runs/from-url", "bootstrap-owner", "trades"].includes(resource)))) {
     return sendJson(response, 405, { error: "Method not allowed" }) ?? true;
   }
 
@@ -608,6 +608,25 @@ async function leagueRoute(request, response, url, identity) {
       return sendJson(response, 201, await activateRecognitionPerk(league, identity, body.perkId)) ?? true;
     } catch (error) {
       return sendJson(response, 400, { error: "Unable to activate perk", detail: error.message }) ?? true;
+    }
+  }
+  if (resource?.startsWith("games/") && resource.endsWith("/outcome") && request.method === "PATCH") {
+    if (!hasLeagueRole(identity, league.id, "coach")) return sendJson(response, identity ? 403 : 401, { error: "League membership required" }) ?? true;
+    const gameId = resource.slice("games/".length, -"/outcome".length);
+    try {
+      const body = await readJson(request);
+      const supported = ["played", "fair_sim", "force_win_away", "force_win_home", "cpu", "strike_away", "strike_home"];
+      if (!supported.includes(body.outcome)) return sendJson(response, 400, { error: "Unsupported game outcome" }) ?? true;
+      if (["force_win_away", "force_win_home", "strike_away", "strike_home"].includes(body.outcome) && !hasLeagueRole(identity, league.id, "commissioner")) {
+        return sendJson(response, 403, { error: "Commissioner role required for force wins and strikes" }) ?? true;
+      }
+      const game = repository.recordGameOutcome
+        ? await repository.recordGameOutcome(league, gameId, body.outcome, identity.id)
+        : null;
+      if (!game) return sendJson(response, 404, { error: "Game not found" }) ?? true;
+      return sendJson(response, 200, enrichGame(league, game)) ?? true;
+    } catch (error) {
+      return sendJson(response, 400, { error: "Unable to record game outcome", detail: error.message }) ?? true;
     }
   }
   if (resource === "members") {

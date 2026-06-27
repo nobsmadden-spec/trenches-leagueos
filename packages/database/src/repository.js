@@ -555,6 +555,33 @@ export function createPrismaRepository(client = prismaClient()) {
       });
       return trades.map(normalizeTrade);
     },
+    async recordGameOutcome(league, gameId, outcome, actorUserId) {
+      const statusByOutcome = { played: "PLAYED", fair_sim: "FAIR_SIM", force_win_away: "FORCE_WIN_AWAY", force_win_home: "FORCE_WIN_HOME", cpu: "PLAYED", strike_away: "ADMIN_REVIEW", strike_home: "ADMIN_REVIEW" };
+      const status = statusByOutcome[outcome];
+      const game = await client.$transaction(async (transaction) => {
+        const existing = await transaction.game.findFirst({
+          where: { leagueId: league.databaseId, OR: [{ id: gameId }, { externalId: gameId }] }
+        });
+        if (!existing) return null;
+        const updated = await transaction.game.update({ where: { id: existing.id }, data: { status } });
+        await transaction.auditLog.create({
+          data: { leagueId: league.databaseId, actorUserId, action: "game.outcome_recorded", entityType: "Game", entityId: existing.id, metadata: { outcome, status } }
+        });
+        return updated;
+      });
+      return game ? {
+        id: game.id,
+        externalId: game.externalId,
+        week: league.week,
+        awayTeamId: league.teams.find((team) => team.sourceIds?.includes(game.awayTeamId))?.id || game.awayTeamId,
+        homeTeamId: league.teams.find((team) => team.sourceIds?.includes(game.homeTeamId))?.id || game.homeTeamId,
+        status: lower(game.status),
+        scheduledAt: game.scheduledAt?.toISOString?.() || game.scheduledAt || null,
+        awayScore: game.awayScore,
+        homeScore: game.homeScore,
+        featured: false
+      } : null;
+    },
     async createTradeProposal(league, input, actorUserId) {
       const findTeam = (id) => league.teams.find((team) => team.id === id || team.externalId === id);
       const teamA = findTeam(input.teamA);

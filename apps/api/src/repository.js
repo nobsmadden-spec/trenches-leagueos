@@ -42,6 +42,13 @@ const memoryRepository = {
     Object.assign(membership, changes);
     return { ...membership, team: league.teams.find((team) => team.id === membership.teamId) || null };
   },
+  recordGameOutcome: (league, gameId, outcome) => {
+    const game = league.games.find((entry) => entry.id === gameId || entry.externalId === gameId);
+    if (!game) return null;
+    const statusByOutcome = { played: "played", fair_sim: "fair_sim", force_win_away: "force_win_away", force_win_home: "force_win_home", cpu: "played", strike_away: "admin_review", strike_home: "admin_review" };
+    game.status = statusByOutcome[outcome];
+    return game;
+  },
   listImportRuns: (league, limit = 10) => (league.importRuns || []).slice(0, limit),
   bootstrapOwnerMembership: (league, userId, teamId = "buf") => {
     const user = [...users.values()].find((entry) => entry.id === userId) || league.demoUser;

@@ -245,6 +245,30 @@ test("Prisma trade center persists proposals and status updates", async () => {
   assert.equal(calls.audit[1].action, "trade.status_updated");
 });
 
+test("Prisma game outcomes update the game and write an audit event", async () => {
+  const calls = { update: null, audit: null };
+  const transaction = {
+    game: {
+      findFirst: async () => ({ id: "game-1" }),
+      update: async ({ where, data }) => {
+        calls.update = { where, data };
+        return {
+          id: "game-1", externalId: "g1", awayTeamId: "team-a", homeTeamId: "team-b", status: data.status,
+          scheduledAt: null, awayScore: null, homeScore: null
+        };
+      }
+    },
+    auditLog: { create: async ({ data }) => { calls.audit = data; } }
+  };
+  const repository = createPrismaRepository({ $transaction: async (operation) => operation(transaction) });
+  const game = await repository.recordGameOutcome({ databaseId: "league-1", week: 8, teams: [] }, "g1", "strike_away", "user-1");
+
+  assert.equal(game.status, "admin_review");
+  assert.deepEqual(calls.update, { where: { id: "game-1" }, data: { status: "ADMIN_REVIEW" } });
+  assert.equal(calls.audit.action, "game.outcome_recorded");
+  assert.equal(calls.audit.metadata.outcome, "strike_away");
+});
+
 test("Prisma trade center lists durable trades with assets", async () => {
   const repository = createPrismaRepository({
     trade: {

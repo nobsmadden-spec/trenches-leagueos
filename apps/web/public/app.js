@@ -213,7 +213,8 @@ function openThreadPreview(gameId) {
   const isFinal = game.status === "played";
   const scoreLine = isFinal ? `Final score: ${away.abbr || "Away"} ${game.awayScore ?? "-"}, ${home.abbr || "Home"} ${game.homeScore ?? "-"}` : `Kickoff: ${game.scheduledAt || "time still needs to be confirmed"}`;
   $("#thread-title").textContent = `${away.abbr || "Away"} at ${home.abbr || "Home"}`;
-  $("#thread-preview-body").innerHTML = `<div class="thread-copy"><p class="eyebrow">${gameStatusLabel(game)} · Week ${game.week || "--"}</p><h3>${away.name || "Away Team"} at ${home.name || "Home Team"}</h3><p>${scoreLine}</p></div><div class="thread-team-grid">${threadTeam(away, "Away coach")}${threadTeam(home, "Home coach")}</div><div class="thread-outcomes"><button class="success-button" type="button" data-thread-outcome="played">Game Completed</button><button type="button" data-thread-outcome="fair_sim">Fair Sim</button><button type="button" data-thread-outcome="force_win_away">FW ${away.abbr || "Away"}</button><button type="button" data-thread-outcome="force_win_home">FW ${home.abbr || "Home"}</button><button type="button" data-thread-outcome="cpu">CPU Game</button><button class="danger-button" type="button" data-thread-outcome="strike_away">Strike ${away.abbr || "Away"}</button><button class="danger-button" type="button" data-thread-outcome="strike_home">Strike ${home.abbr || "Home"}</button></div><div id="thread-outcome-result" class="thread-outcome-result muted">Choose an outcome to draft the commissioner action.</div><div class="thread-checklist"><strong>Thread checklist</strong><span>Tag both coaches</span><span>Confirm kickoff window</span><span>Post stream or proof link</span><span>${isFinal ? "Mark final and archive" : "Track activity until final"}</span></div>`;
+  const commissionerActions = currentRole === "commissioner" ? `<button type="button" data-thread-outcome="force_win_away">FW ${away.abbr || "Away"}</button><button type="button" data-thread-outcome="force_win_home">FW ${home.abbr || "Home"}</button><button class="danger-button" type="button" data-thread-outcome="strike_away">Strike ${away.abbr || "Away"}</button><button class="danger-button" type="button" data-thread-outcome="strike_home">Strike ${home.abbr || "Home"}</button>` : "";
+  $("#thread-preview-body").innerHTML = `<div class="thread-copy"><p class="eyebrow">${gameStatusLabel(game)} · Week ${game.week || "--"}</p><h3>${away.name || "Away Team"} at ${home.name || "Home Team"}</h3><p>${scoreLine}</p></div><div class="thread-team-grid">${threadTeam(away, "Away coach")}${threadTeam(home, "Home coach")}</div><div class="thread-outcomes"><button class="success-button" type="button" data-thread-outcome="played">Game Completed</button><button type="button" data-thread-outcome="fair_sim">Fair Sim</button><button type="button" data-thread-outcome="cpu">CPU Game</button>${commissionerActions}</div><div id="thread-outcome-result" class="thread-outcome-result muted">Choose an outcome to record it in LeagueOS.</div><div class="thread-checklist"><strong>Thread checklist</strong><span>Tag both coaches</span><span>Confirm kickoff window</span><span>Post stream or proof link</span><span>${isFinal ? "Mark final and archive" : "Track activity until final"}</span></div>`;
   const panel = $("#game-thread-preview");
   panel.classList.remove("hidden");
   panel.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -225,7 +226,7 @@ async function openTeamThread(gameId) {
   openThreadPreview(gameId);
 }
 
-function recordThreadOutcome(outcome) {
+async function recordThreadOutcome(outcome) {
   const game = matchupCache.find((item) => String(item.id) === String(activeThreadGameId) || String(item.externalId) === String(activeThreadGameId));
   if (!game) return;
   const away = game.awayTeam || {};
@@ -239,12 +240,19 @@ function recordThreadOutcome(outcome) {
     strike_away: `${away.name || "Away team"} strike drafted from thread evidence.`,
     strike_home: `${home.name || "Home team"} strike drafted from thread evidence.`
   };
-  if (["played", "fair_sim", "force_win_away", "force_win_home"].includes(outcome)) {
-    game.status = outcome;
+  const result = $("#thread-outcome-result");
+  result.textContent = "Recording outcome...";
+  result.className = "thread-outcome-result muted";
+  try {
+    const updated = await apiMutation(`/games/${encodeURIComponent(game.id || game.externalId)}/outcome`, "PATCH", { outcome });
+    Object.assign(game, updated);
     loadMatchups(matchupFilter);
+    result.textContent = labels[outcome] || "Outcome recorded.";
+    result.className = `thread-outcome-result ${outcome.includes("strike") ? "danger" : "complete"}`;
+  } catch (error) {
+    result.textContent = error.message;
+    result.className = "thread-outcome-result danger";
   }
-  $("#thread-outcome-result").textContent = labels[outcome] || "Outcome drafted.";
-  $("#thread-outcome-result").className = `thread-outcome-result ${outcome.includes("strike") ? "danger" : "complete"}`;
 }
 
 function seedRows(teams) {

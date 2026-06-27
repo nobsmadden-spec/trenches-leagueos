@@ -97,6 +97,8 @@ test("static assets are served with their real content types", async () => {
   assert.match(script.body, /Full Imported Roster/);
   assert.match(script.body, /TOP 22 OVR/);
   assert.match(script.body, /async function openTeamThread/);
+  assert.match(script.body, /async function recordThreadOutcome/);
+  assert.match(script.body, /Recording outcome/);
   assert.match(script.body, /data-open-team-thread/);
   assert.match(script.body, /No Open Matchup/);
   assert.match(script.body, /function filterTradeAssets/);
@@ -162,6 +164,23 @@ test("coaches can draft and progress a trade proposal", async () => {
   });
   assert.equal(approvedByCommittee.status, 200);
   assert.equal(approvedByCommittee.json.status, "approved");
+});
+
+test("game thread outcomes are recorded through the league API", async () => {
+  const games = await get("/api/leagues/the-trenches/games");
+  const game = games.json.find((entry) => entry.status !== "played");
+  const recorded = await request(`/api/leagues/the-trenches/games/${game.id}/outcome`, {
+    method: "PATCH",
+    body: { outcome: "fair_sim" }
+  });
+  assert.equal(recorded.status, 200);
+  assert.equal(recorded.json.status, "fair_sim");
+
+  const unsupported = await request(`/api/leagues/the-trenches/games/${game.id}/outcome`, {
+    method: "PATCH",
+    body: { outcome: "invented_result" }
+  });
+  assert.equal(unsupported.status, 400);
 });
 
 test("coaches can activate recognition perks", async () => {
