@@ -375,18 +375,23 @@ function createTradeProposal(league, body, identity) {
 
 function tradeAssetBoard(league) {
   const picks = ["2027 1st", "2027 2nd", "2027 3rd", "2028 1st", "2028 2nd", "2029 1st"];
-  return league.teams.map((team) => ({
-    teamId: team.id,
-    teamName: team.name,
-    assets: [
-      ...league.players.filter((player) => player.teamId === team.id).map((player) => ({
-        label: `${player.position} ${player.name}`,
-        value: Math.round(((player.overall || 70) - 60) * 11 + (player.position === "QB" ? 80 : 0)),
-        type: "player"
-      })),
-      ...picks.map((pick) => ({ label: pick, value: assetValue(pick), type: "pick" }))
-    ]
-  }));
+  return league.teams.map((team) => {
+    const players = league.players.filter((player) => player.teamId === team.id).map((player) => ({
+      id: player.id,
+      label: `${player.position} ${player.name} (${player.overall ?? "--"} OVR)`,
+      value: Math.round(((player.overall || 70) - 60) * 11 + (player.position === "QB" ? 80 : 0)),
+      type: "player",
+      position: player.position,
+      overall: player.overall
+    })).sort((a, b) => b.value - a.value || a.label.localeCompare(b.label));
+    return {
+      teamId: team.id,
+      teamName: team.name,
+      teamAbbr: team.abbr,
+      rosterCount: players.length,
+      assets: [...players, ...picks.map((pick) => ({ label: pick, value: assetValue(pick), type: "pick" }))]
+    };
+  }).sort((a, b) => a.teamName.localeCompare(b.teamName));
 }
 
 function buildStrikeBoard(league) {

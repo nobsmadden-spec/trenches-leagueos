@@ -58,6 +58,10 @@ test("health and league summary APIs respond", async () => {
   const tradeAssets = await get("/api/leagues/the-trenches/trade-assets");
   assert.equal(tradeAssets.status, 200);
   assert.ok(tradeAssets.json[0].assets.length > 0);
+  const billsAssets = tradeAssets.json.find((entry) => entry.teamAbbr === "BUF");
+  assert.ok(billsAssets.rosterCount > 0);
+  assert.match(billsAssets.assets[0].label, /OVR/);
+  assert.equal(billsAssets.assets[0].type, "player");
   const recognition = await get("/api/leagues/the-trenches/recognition");
   assert.equal(recognition.status, 200);
   assert.ok(recognition.json.leaders.length > 0);
@@ -89,6 +93,9 @@ test("static assets are served with their real content types", async () => {
   assert.match(script.body, /Imported teams could not load/);
   assert.match(script.body, /trenches-leagueos\.onrender\.com/);
   assert.match(script.body, /Live exports appear on the Render website/);
+  assert.match(script.body, /function rosterGroups/);
+  assert.match(script.body, /Full Imported Roster/);
+  assert.match(script.body, /TOP 22 OVR/);
   assert.match(script.body, /escapeHtml/);
 });
 

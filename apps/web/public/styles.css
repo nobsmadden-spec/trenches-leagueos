@@ -893,6 +893,14 @@ h1, h2, strong { font-family: "Barlow Condensed", sans-serif; text-transform: up
 .roster-line span { color: var(--gold); }
 .roster-line strong { font: 700 12px Inter; text-transform: none; }
 .roster-line b { color: var(--muted); }
+.roster-group { border-top: 1px solid var(--line); }
+.roster-group summary { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 0; cursor: pointer; list-style: none; }
+.roster-group summary::-webkit-details-marker { display: none; }
+.roster-group summary strong { color: var(--ink); font: 800 16px "Barlow Condensed"; text-transform: uppercase; }
+.roster-group summary span { color: var(--muted); font-size: 9px; text-transform: uppercase; letter-spacing: .1em; }
+.roster-group summary:after { content: "+"; color: var(--gold); font-size: 18px; }
+.roster-group[open] summary:after { content: "-"; }
+.roster-group > div { max-height: 420px; overflow-y: auto; padding-right: 4px; }
 .draft-picks { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 14px; }
 .draft-picks span { border: 1px solid var(--line); color: var(--muted); padding: 7px; font-size: 9px; }
 

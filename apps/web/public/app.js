@@ -350,6 +350,28 @@ async function loadPlayers(query = "") {
   $("#player-results").innerHTML = players.length ? players.map((player) => `<article class="player-card" data-position="${player.position}"><div class="player-top"><div><h3>${player.name}</h3><p>${player.team?.name || "Free Agent"}</p></div><div class="ovr">${player.overall ?? "--"}<small>OVR</small></div></div><div class="player-meta"><span>${player.position || "POS"}</span><span>${player.devTrait || "Normal"}</span><span>AGE ${player.age ?? "--"}</span></div><div class="player-stat"><span>${player.statLabel || "Overall"}</span><strong>${Number(player.statValue || player.overall || 0).toLocaleString()}</strong></div></article>`).join("") : `<p class="empty">No players match “${query}”.</p>`;
 }
 
+const rosterLanes = {
+  Offense: new Set(["QB", "HB", "FB", "WR", "TE", "LT", "LG", "C", "RG", "RT"]),
+  Defense: new Set(["LE", "RE", "DT", "LOLB", "MLB", "ROLB", "CB", "FS", "SS"]),
+  "Special Teams": new Set(["K", "P"])
+};
+
+function rosterLane(position) {
+  return Object.entries(rosterLanes).find(([, positions]) => positions.has(position))?.[0] || "Other";
+}
+
+function rosterGroups(roster) {
+  const groups = new Map();
+  for (const player of roster) {
+    const lane = rosterLane(player.position);
+    groups.set(lane, [...(groups.get(lane) || []), player]);
+  }
+  return ["Offense", "Defense", "Special Teams", "Other"].filter((lane) => groups.has(lane)).map((lane, index) => {
+    const players = groups.get(lane);
+    return `<details class="roster-group" ${index < 2 ? "open" : ""}><summary><strong>${lane}</strong><span>${players.length} players</span></summary><div>${players.map((player) => `<div class="roster-line"><span>${escapeHtml(player.position)}</span><strong>${escapeHtml(player.name)}</strong><b>${player.overall ?? "--"}</b></div>`).join("")}</div></details>`;
+  }).join("");
+}
+
 async function loadTeam(nextTeamId = selectedTeamId) {
   if (!teamCache.length) teamCache = await api("/teams");
   const teamId = nextTeamId || workspace?.team?.id || teamCache[0]?.id || "buf";
@@ -365,15 +387,17 @@ async function loadTeam(nextTeamId = selectedTeamId) {
   const opponent = opponentGame && (opponentGame.homeTeamId === team.id ? opponentGame.awayTeam : opponentGame.homeTeam);
   const pointDiff = team.pointsFor - team.pointsAgainst;
   const roster = team.roster.slice().sort((a, b) => (b.overall || 0) - (a.overall || 0));
+  const ratedRoster = roster.filter((player) => Number.isFinite(Number(player.overall))).slice(0, 22);
+  const calculatedOverall = ratedRoster.length ? Math.round(ratedRoster.reduce((total, player) => total + Number(player.overall), 0) / ratedRoster.length) : null;
   const recordLine = `${record(team)} · ${team.conference} ${team.division}`;
   const command = $("#team-command");
   command.classList.remove("skeleton");
-  command.innerHTML = `<section class="team-identity" style="--team-color:${getNFLColor(team.abbr, team.color)}"><div class="team-monogram">${teamLogoImg(team.abbr, 64)}</div><div><p>${recordLine}</p><h2>${team.name}</h2><span>${team.owner || "Open team"}</span></div><div class="team-overall"><strong>${team.overall ?? "--"}</strong><small>OVR</small></div></section><div class="team-stat-grid"><article><span>Points For</span><strong>${team.pointsFor}</strong></article><article><span>Points Against</span><strong>${team.pointsAgainst}</strong></article><article><span>Point Diff</span><strong>${pointDiff > 0 ? "+" : ""}${pointDiff}</strong></article><article><span>Roster Size</span><strong>${team.roster.length}</strong></article></div><div class="team-columns"><section class="panel"><div class="panel-heading"><div><span>Next assignment</span><h2>${opponent ? `${opponentGame.homeTeamId === team.id ? "vs." : "at"} ${opponent.name}` : "Schedule clear"}</h2></div></div><p class="team-detail">${opponentGame?.scheduledAt || "A game time still needs to be confirmed."}</p><div class="team-schedule">${team.schedule.length ? team.schedule.map((game) => {
+  command.innerHTML = `<section class="team-identity" style="--team-color:${getNFLColor(team.abbr, team.color)}"><div class="team-monogram">${teamLogoImg(team.abbr, 64)}</div><div><p>${recordLine}</p><h2>${team.name}</h2><span>${team.owner || "Open team"}</span></div><div class="team-overall"><strong>${team.overall ?? calculatedOverall ?? "--"}</strong><small>TOP 22 OVR</small></div></section><div class="team-stat-grid"><article><span>Points For</span><strong>${team.pointsFor}</strong></article><article><span>Points Against</span><strong>${team.pointsAgainst}</strong></article><article><span>Point Diff</span><strong>${pointDiff > 0 ? "+" : ""}${pointDiff}</strong></article><article><span>Roster Size</span><strong>${team.roster.length}</strong></article></div><div class="team-columns"><section class="panel"><div class="panel-heading"><div><span>Next assignment</span><h2>${opponent ? `${opponentGame.homeTeamId === team.id ? "vs." : "at"} ${opponent.name}` : "Schedule clear"}</h2></div></div><p class="team-detail">${opponentGame?.scheduledAt || "A game time still needs to be confirmed."}</p><div class="team-schedule">${team.schedule.length ? team.schedule.map((game) => {
     const isHome = game.homeTeamId === team.id;
     const opponentTeam = isHome ? game.awayTeam : game.homeTeam;
     const score = game.status === "played" ? `${game.awayScore ?? "-"}-${game.homeScore ?? "-"}` : game.scheduledAt || "Not scheduled";
     return `<div class="schedule-line"><span>W${game.week || "--"}</span><strong>${isHome ? "vs." : "at"} ${opponentTeam?.name || "TBD"}</strong><b>${score}</b></div>`;
-  }).join("") : `<p class="muted">Schedule arrives with the league export.</p>`}</div><button class="primary-button">Open Game Thread</button></section><section class="panel"><div class="panel-heading"><div><span>Roster room</span><h2>Key Personnel</h2></div><span class="muted">Top 12 by OVR</span></div>${roster.length ? roster.slice(0, 12).map((player) => `<div class="roster-line"><span>${player.position}</span><strong>${player.name}</strong><b>${player.overall ?? "--"}</b></div>`).join("") : `<p class="muted">Full roster arrives with the EA importer.</p>`}<div class="draft-picks">${(team.draftPicks || []).map((pick) => `<span>${pick}</span>`).join("")}</div></section></div>`;
+  }).join("") : `<p class="muted">Schedule arrives with the league export.</p>`}</div><button class="primary-button">Open Game Thread</button></section><section class="panel"><div class="panel-heading"><div><span>Roster room</span><h2>Full Imported Roster</h2></div><span class="muted">${roster.length} players · sorted by OVR</span></div>${roster.length ? rosterGroups(roster) : `<p class="muted">Full roster arrives with the EA importer.</p>`}<div class="draft-picks">${(team.draftPicks || []).map((pick) => `<span>${pick}</span>`).join("")}</div></section></div>`;
 }
 
 $("#team-picker").addEventListener("change", (event) => loadTeam(event.target.value));
@@ -493,9 +517,11 @@ async function updateTradeDecision(tradeId, action) {
 }
 
 function renderTradeBuilder() {
-  const teamOptions = tradeAssets.map((entry) => `<option value="${entry.teamId}">${entry.teamName}</option>`).join("");
+  const teamOptions = tradeAssets.map((entry) => `<option value="${entry.teamId}">${entry.teamAbbr || "--"} · ${entry.teamName} (${entry.rosterCount} players)</option>`).join("");
   $("#trade-team-a").innerHTML = teamOptions;
   $("#trade-team-b").innerHTML = teamOptions;
+  const preferredTeamId = workspace?.team?.id;
+  if (preferredTeamId && tradeAssets.some((entry) => entry.teamId === preferredTeamId)) $("#trade-team-a").value = preferredTeamId;
   if (!$("#trade-team-b").value || $("#trade-team-b").value === $("#trade-team-a").value) $("#trade-team-b").selectedIndex = Math.min(1, tradeAssets.length - 1);
   renderAssetOptions($("#trade-assets-a"), $("#trade-team-a").value);
   renderAssetOptions($("#trade-assets-b"), $("#trade-team-b").value);
