@@ -32,7 +32,10 @@ if (tokenSections.length !== 3) {
 const permissions = [
   PermissionFlagsBits.SendMessages,
   PermissionFlagsBits.EmbedLinks,
-  PermissionFlagsBits.ReadMessageHistory
+  PermissionFlagsBits.ReadMessageHistory,
+  PermissionFlagsBits.CreatePublicThreads,
+  PermissionFlagsBits.SendMessagesInThreads,
+  PermissionFlagsBits.ManageThreads
 ].reduce((total, permission) => total | permission, 0n);
 
 const inviteUrl = new URL("https://discord.com/oauth2/authorize");
