@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { matchupFields, standingsFields } from "../src/formatters.js";
+import { matchupFields, rosterFields, standingsFields } from "../src/formatters.js";
 
 test("Discord standings formatter preserves division order and records", () => {
   const fields = standingsFields({
@@ -35,4 +35,16 @@ test("Discord matchup formatter shows schedule status and final scores", () => {
   assert.match(fields[0].name, /Week 8 \| BUF at MIA/);
   assert.match(fields[0].value, /Scheduled.*Friday 9:00 PM ET/);
   assert.match(fields[1].value, /Final.*DAL 24 - DET 31/);
+});
+
+test("Discord roster formatter groups imported players by unit", () => {
+  const fields = rosterFields({
+    roster: [
+      { name: "Josh Allen", position: "QB", overall: 95 },
+      { name: "Greg Rousseau", position: "LE", overall: 89 },
+      { name: "Strong Leg", position: "K", overall: 80 }
+    ]
+  });
+  assert.deepEqual(fields.map((field) => field.name), ["Offense | 1", "Defense | 1", "Special Teams | 1"]);
+  assert.match(fields[0].value, /\*\*QB\*\* Josh Allen \| 95 OVR/);
 });

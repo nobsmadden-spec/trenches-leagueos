@@ -14,6 +14,7 @@ export function createLeagueCommands({ apiBaseUrl, fetchImpl = fetch }) {
     playoffRace: (leagueId) => get(`/api/leagues/${leagueId}/playoff-race`),
     powerRankings: (leagueId) => get(`/api/leagues/${leagueId}/power-rankings`),
     matchups: (leagueId) => get(`/api/leagues/${leagueId}/games`),
+    roster: (leagueId, teamId) => get(`/api/leagues/${leagueId}/teams/${encodeURIComponent(teamId)}`),
     playerSearch: (leagueId, query) => get(`/api/leagues/${leagueId}/players?q=${encodeURIComponent(query)}`),
     teamList: (leagueId) => get(`/api/leagues/${leagueId}/teams`)
   };

@@ -13,7 +13,10 @@ if (!applicationId) {
 const permissions = [
   PermissionFlagsBits.SendMessages,
   PermissionFlagsBits.EmbedLinks,
-  PermissionFlagsBits.ReadMessageHistory
+  PermissionFlagsBits.ReadMessageHistory,
+  PermissionFlagsBits.CreatePublicThreads,
+  PermissionFlagsBits.SendMessagesInThreads,
+  PermissionFlagsBits.ManageThreads
 ].reduce((total, permission) => total | permission, 0n);
 
 function inviteUrl({ base = "https://discord.com/oauth2/authorize", permissionValue = permissions.toString() } = {}) {
