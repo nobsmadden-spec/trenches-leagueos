@@ -28,6 +28,39 @@ test("Prisma repository normalizes durable league records to the API contract", 
   assert.equal(league.syncHealth.datasets[0].records, 1696);
 });
 
+test("Prisma repository merges seeded and Snallabot team aliases", async () => {
+  const row = {
+    id: "db-league",
+    slug: "the-trenches",
+    name: "The Trenches",
+    gameType: "MADDEN",
+    seasons: [{ number: 2, weeks: [{ number: 8, advancesAt: null }] }],
+    teams: [
+      {
+        id: "team-seeded", externalId: "buf", name: "Buffalo Bills", abbreviation: "BUF", conference: "AFC", division: "East", primaryColor: "#00338D",
+        ownerMembership: { user: { displayName: "Coach Devin" } }, seasonSnapshots: []
+      },
+      {
+        id: "team-imported", externalId: "775553025", name: "Buffalo Bills", abbreviation: "BUF", conference: "AFC", division: "East", primaryColor: "#00338D",
+        ownerMembership: null, seasonSnapshots: [{ wins: 6, losses: 1, capturedAt: new Date("2026-06-27T00:00:00Z") }]
+      }
+    ],
+    games: [{ id: "game-1", externalId: "g1", awayTeamId: "team-seeded", homeTeamId: "team-imported", status: "SCHEDULED", scheduledAt: null, awayScore: null, homeScore: null }],
+    players: [{ id: "player-1", name: "Josh Allen", teamId: "team-imported", position: "QB", overall: 95, devTrait: "X-Factor", age: 30, attributes: {} }],
+    importRuns: []
+  };
+  const repository = createPrismaRepository({ league: { findFirst: async () => row } });
+  const league = await repository.getLeague("the-trenches");
+
+  assert.equal(league.teams.length, 1);
+  assert.equal(league.teams[0].id, "team-imported");
+  assert.equal(league.teams[0].owner, "Coach Devin");
+  assert.equal(league.teams[0].wins, 6);
+  assert.equal(league.players[0].teamId, "team-imported");
+  assert.equal(league.games[0].awayTeamId, "team-imported");
+  assert.equal(repository.getTeam(league, "team-seeded").id, "team-imported");
+});
+
 test("Prisma repository ensures the foundation league when missing", async () => {
   const ensuredLeague = {
     id: "db-league",

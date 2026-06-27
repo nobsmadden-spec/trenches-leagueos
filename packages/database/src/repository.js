@@ -27,17 +27,40 @@ function normalizeLeague(row) {
   const season = row.seasons[0];
   const week = season?.weeks[0];
   const latestImport = row.importRuns[0];
-  const teams = row.teams.map((team) => {
-    const snapshot = team.seasonSnapshots[0] || {};
+  const playerCountByTeam = new Map();
+  for (const player of row.players) {
+    if (player.teamId) playerCountByTeam.set(player.teamId, (playerCountByTeam.get(player.teamId) || 0) + 1);
+  }
+  const teamGroups = new Map();
+  for (const team of row.teams) {
+    const key = String(team.abbreviation || team.externalId || team.id).toLowerCase();
+    teamGroups.set(key, [...(teamGroups.get(key) || []), team]);
+  }
+  const canonicalTeamId = new Map();
+  const teams = [...teamGroups.values()].map((group) => {
+    const ranked = group.slice().sort((a, b) => {
+      const score = (team) => (playerCountByTeam.get(team.id) || 0) * 1000
+        + (String(team.externalId).toLowerCase() !== String(team.abbreviation).toLowerCase() ? 100 : 0)
+        + (team.seasonSnapshots?.length || 0) * 10
+        + (team.ownerMembership ? 1 : 0);
+      return score(b) - score(a);
+    });
+    const team = ranked[0];
+    const snapshots = group.flatMap((entry) => entry.seasonSnapshots || []).sort((a, b) => new Date(b.capturedAt || 0) - new Date(a.capturedAt || 0));
+    const snapshot = snapshots[0] || {};
+    const ownerMembership = group.find((entry) => entry.ownerMembership)?.ownerMembership;
+    const sourceIds = group.flatMap((entry) => [entry.id, entry.externalId]).filter(Boolean);
+    for (const sourceId of sourceIds) canonicalTeamId.set(sourceId, team.id);
     return {
       id: team.id,
       externalId: team.externalId,
+      sourceIds,
       name: team.name,
       abbr: team.abbreviation,
       conference: team.conference,
       division: team.division,
       color: team.primaryColor || "#64748b",
-      owner: team.ownerMembership?.user?.displayName || null,
+      owner: ownerMembership?.user?.displayName || null,
       wins: snapshot.wins || 0,
       losses: snapshot.losses || 0,
       ties: snapshot.ties || 0,
@@ -68,8 +91,8 @@ function normalizeLeague(row) {
       id: game.id,
       externalId: game.externalId,
       week: week?.number || null,
-      awayTeamId: game.awayTeamId,
-      homeTeamId: game.homeTeamId,
+      awayTeamId: canonicalTeamId.get(game.awayTeamId) || game.awayTeamId,
+      homeTeamId: canonicalTeamId.get(game.homeTeamId) || game.homeTeamId,
       status: lower(game.status),
       scheduledAt: game.scheduledAt?.toISOString() || null,
       awayScore: game.awayScore,
@@ -79,7 +102,7 @@ function normalizeLeague(row) {
     players: row.players.map((player) => ({
       id: player.id,
       name: player.name,
-      teamId: player.teamId,
+      teamId: canonicalTeamId.get(player.teamId) || player.teamId,
       position: player.position,
       overall: player.overall,
       devTrait: player.devTrait,
@@ -478,7 +501,7 @@ export function createPrismaRepository(client = prismaClient()) {
       return row ? normalizeLeague(row) : null;
     },
     getTeam(league, id) {
-      return league.teams.find((team) => team.id === id || team.externalId === id);
+      return league.teams.find((team) => team.id === id || team.externalId === id || team.sourceIds?.includes(id));
     },
     async listMembers(league) {
       const memberships = await client.leagueMembership.findMany({
@@ -486,16 +509,19 @@ export function createPrismaRepository(client = prismaClient()) {
         include: { user: true, team: true },
         orderBy: { user: { displayName: "asc" } }
       });
-      return memberships.map((membership) => ({
+      return memberships.map((membership) => {
+        const team = league.teams.find((entry) => entry.id === membership.teamId || entry.sourceIds?.includes(membership.teamId));
+        return {
         id: membership.id,
         userId: membership.userId,
         displayName: membership.user.displayName,
         avatarUrl: membership.user.avatarUrl,
-        teamId: membership.teamId,
-        team: membership.team ? { id: membership.team.id, name: membership.team.name, abbr: membership.team.abbreviation, color: membership.team.primaryColor } : null,
+        teamId: team?.id || membership.teamId,
+        team: team ? { id: team.id, name: team.name, abbr: team.abbr, color: team.color } : null,
         role: lower(membership.role),
         status: lower(membership.status)
-      }));
+        };
+      });
     },
     async listImportRuns(league, limit = 10) {
       const runs = await client.importRun.findMany({
