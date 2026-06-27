@@ -123,8 +123,8 @@
         <div class="trade-builder">
           <label>Your Team<select id="trade-team-a"></select></label>
           <label>Other Team<select id="trade-team-b"></select></label>
-          <label>Assets You Send<select id="trade-assets-a" multiple></select></label>
-          <label>Assets You Receive<select id="trade-assets-b" multiple></select></label>
+          <div class="trade-asset-field"><label for="trade-assets-a">Assets You Send</label><div class="trade-asset-filters"><input id="trade-search-a" type="search" placeholder="Search player or position" aria-label="Search assets you send"><select id="trade-filter-a" aria-label="Filter assets you send"><option value="all">All assets</option><option value="players">All players</option><option value="Offense">Offense</option><option value="Defense">Defense</option><option value="Special Teams">Special teams</option><option value="picks">Draft picks</option></select></div><select id="trade-assets-a" multiple></select><small id="trade-selection-a">0 selected</small></div>
+          <div class="trade-asset-field"><label for="trade-assets-b">Assets You Receive</label><div class="trade-asset-filters"><input id="trade-search-b" type="search" placeholder="Search player or position" aria-label="Search assets you receive"><select id="trade-filter-b" aria-label="Filter assets you receive"><option value="all">All assets</option><option value="players">All players</option><option value="Offense">Offense</option><option value="Defense">Defense</option><option value="Special Teams">Special teams</option><option value="picks">Draft picks</option></select></div><select id="trade-assets-b" multiple></select><small id="trade-selection-b">0 selected</small></div>
         </div>
         <div id="trade-preview" class="trade-preview"></div>
       </section>

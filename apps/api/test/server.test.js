@@ -96,7 +96,15 @@ test("static assets are served with their real content types", async () => {
   assert.match(script.body, /function rosterGroups/);
   assert.match(script.body, /Full Imported Roster/);
   assert.match(script.body, /TOP 22 OVR/);
+  assert.match(script.body, /function filterTradeAssets/);
+  assert.match(script.body, /function updateTradeSelection/);
   assert.match(script.body, /escapeHtml/);
+
+  const html = await request("/");
+  assert.equal(html.status, 200);
+  assert.match(html.body, /id="trade-search-a"/);
+  assert.match(html.body, /id="trade-filter-b"/);
+  assert.match(html.body, /Draft picks/);
 });
 
 test("production-style requests cannot claim commissioner access by query string", async () => {

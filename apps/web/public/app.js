@@ -473,12 +473,37 @@ function selectedAssets(selector) {
   return [...$(selector).selectedOptions].map((option) => ({ label: option.textContent.replace(/\s+·\s+\d+$/, ""), value: Number(option.value || 0), type: option.dataset.assetType || "asset" }));
 }
 
-function renderAssetOptions(select, teamId) {
+function renderAssetOptions(select, teamId, side) {
   const board = tradeAssets.find((entry) => entry.teamId === teamId);
-  select.innerHTML = (board?.assets || []).map((asset) => `<option value="${asset.value}" data-asset-type="${asset.type}">${asset.label} · ${asset.value}</option>`).join("");
+  select.innerHTML = (board?.assets || []).map((asset) => `<option value="${asset.value}" data-asset-type="${asset.type}" data-position="${asset.position || ""}">${escapeHtml(asset.label)} · ${asset.value}</option>`).join("");
+  filterTradeAssets(side);
+  updateTradeSelection(side);
+}
+
+function filterTradeAssets(side) {
+  const query = $(`#trade-search-${side}`).value.trim().toLowerCase();
+  const filter = $(`#trade-filter-${side}`).value;
+  const options = [...$(`#trade-assets-${side}`).options];
+  for (const option of options) {
+    const type = option.dataset.assetType;
+    const position = option.dataset.position;
+    const lane = rosterLane(position);
+    const matchesFilter = filter === "all"
+      || (filter === "players" && type === "player")
+      || (filter === "picks" && type === "pick")
+      || (type === "player" && lane === filter);
+    option.hidden = !matchesFilter || !option.textContent.toLowerCase().includes(query);
+  }
+}
+
+function updateTradeSelection(side) {
+  const count = $(`#trade-assets-${side}`).selectedOptions.length;
+  $(`#trade-selection-${side}`).textContent = `${count} selected`;
 }
 
 function updateTradePreview() {
+  updateTradeSelection("a");
+  updateTradeSelection("b");
   const send = selectedAssets("#trade-assets-a");
   const receive = selectedAssets("#trade-assets-b");
   const sendTotal = send.reduce((total, asset) => total + asset.value, 0);
@@ -523,16 +548,23 @@ function renderTradeBuilder() {
   const preferredTeamId = workspace?.team?.id;
   if (preferredTeamId && tradeAssets.some((entry) => entry.teamId === preferredTeamId)) $("#trade-team-a").value = preferredTeamId;
   if (!$("#trade-team-b").value || $("#trade-team-b").value === $("#trade-team-a").value) $("#trade-team-b").selectedIndex = Math.min(1, tradeAssets.length - 1);
-  renderAssetOptions($("#trade-assets-a"), $("#trade-team-a").value);
-  renderAssetOptions($("#trade-assets-b"), $("#trade-team-b").value);
+  renderAssetOptions($("#trade-assets-a"), $("#trade-team-a").value, "a");
+  renderAssetOptions($("#trade-assets-b"), $("#trade-team-b").value, "b");
   updateTradePreview();
 }
 
 ["#trade-team-a", "#trade-team-b"].forEach((selector) => $(selector).addEventListener("change", () => {
-  renderAssetOptions($(selector === "#trade-team-a" ? "#trade-assets-a" : "#trade-assets-b"), $(selector).value);
+  const side = selector === "#trade-team-a" ? "a" : "b";
+  $(`#trade-search-${side}`).value = "";
+  $(`#trade-filter-${side}`).value = "all";
+  renderAssetOptions($(`#trade-assets-${side}`), $(selector).value, side);
   updateTradePreview();
 }));
 ["#trade-assets-a", "#trade-assets-b"].forEach((selector) => $(selector).addEventListener("change", updateTradePreview));
+["a", "b"].forEach((side) => {
+  $(`#trade-search-${side}`).addEventListener("input", () => filterTradeAssets(side));
+  $(`#trade-filter-${side}`).addEventListener("change", () => filterTradeAssets(side));
+});
 
 document.querySelectorAll(".status-tabs button").forEach((button) => button.addEventListener("click", () => {
   if (button.dataset.matchupFilter) {

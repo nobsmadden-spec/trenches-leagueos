@@ -965,7 +965,12 @@ h1, h2, strong { font-family: "Barlow Condensed", sans-serif; text-transform: up
   text-transform: uppercase;
   letter-spacing: .1em;
 }
-.trade-builder select {
+.trade-asset-field { display: grid; gap: 7px; }
+.trade-asset-field > label, .trade-asset-field > small { color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .1em; }
+.trade-asset-field > small { text-align: right; letter-spacing: .04em; text-transform: none; }
+.trade-asset-filters { display: grid; grid-template-columns: 1fr 150px; gap: 8px; }
+.trade-asset-filters input, .trade-asset-filters select { min-width: 0; }
+.trade-builder select, .trade-builder input {
   width: 100%;
   border: 1px solid var(--line);
   background: rgba(8,11,16,.6);
@@ -1396,6 +1401,7 @@ footer {
   .recognition-leader span { grid-column: 1/-1; }
   .trade-attention-card { align-items: flex-start; flex-direction: column; }
   .trade-builder, .trade-preview-card { grid-template-columns: 1fr; }
+  .trade-asset-filters { grid-template-columns: 1fr; }
   .team-badge { width: 56px; height: 56px; font-size: 21px; }
   .match-team h3 { font-size: 21px; }
   .versus strong { font-size: 38px; }
