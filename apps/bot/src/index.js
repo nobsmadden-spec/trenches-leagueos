@@ -1,6 +1,7 @@
 import { Client, EmbedBuilder, GatewayIntentBits, REST, Routes, SlashCommandBuilder } from "discord.js";
 import { loadEnvFile } from "../../../packages/config/src/env.js";
-import { standingsFields } from "./formatters.js";
+import { createLeagueCommands } from "./commands.js";
+import { matchupFields, standingsFields } from "./formatters.js";
 
 await loadEnvFile(undefined, { override: true });
 
@@ -14,17 +15,23 @@ if (!token || !applicationId) {
   process.exit(1);
 }
 
-const command = new SlashCommandBuilder()
+const standingsCommand = new SlashCommandBuilder()
   .setName("standings")
   .setDescription("Show the current league standings")
   .addStringOption((option) => option.setName("league").setDescription("League slug").setRequired(false));
+const matchupsCommand = new SlashCommandBuilder()
+  .setName("matchups")
+  .setDescription("Show the current matchup board")
+  .addStringOption((option) => option.setName("league").setDescription("League slug").setRequired(false));
+const slashCommands = [standingsCommand, matchupsCommand];
+const leagueCommands = createLeagueCommands({ apiBaseUrl });
 
 const rest = new REST({ version: "10" }).setToken(token);
 try {
-  await rest.put(Routes.applicationCommands(applicationId), { body: [command.toJSON()] });
-  console.log("Registered /standings command with Discord.");
+  await rest.put(Routes.applicationCommands(applicationId), { body: slashCommands.map((command) => command.toJSON()) });
+  console.log("Registered /standings and /matchups commands with Discord.");
 } catch (error) {
-  console.error(`Unable to register /standings: ${error.message}`);
+  console.error(`Unable to register Discord commands: ${error.message}`);
   if (error.status === 401 || String(error.message).includes("401")) {
     console.error("Discord rejected DISCORD_BOT_TOKEN. Reset the token on the Bot page for the same app as DISCORD_CLIENT_ID.");
   }
@@ -41,22 +48,20 @@ client.once("clientReady", () => {
 });
 
 client.on("interactionCreate", async (interaction) => {
-  if (!interaction.isChatInputCommand() || interaction.commandName !== "standings") return;
+  if (!interaction.isChatInputCommand() || !slashCommands.some((command) => command.name === interaction.commandName)) return;
   await interaction.deferReply();
   try {
     const leagueId = interaction.options.getString("league") || defaultLeagueId;
-    const response = await fetch(`${apiBaseUrl}/api/leagues/${encodeURIComponent(leagueId)}/standings`);
-    if (!response.ok) throw new Error(`League API returned ${response.status}`);
-    const standings = await response.json();
-    const embed = new EmbedBuilder()
-      .setColor(0xd6a94b)
-      .setTitle("The Trenches Standings")
-      .setDescription("Live division records from LeagueOS")
-      .addFields(standingsFields(standings))
+    const isStandings = interaction.commandName === "standings";
+    const data = isStandings ? await leagueCommands.standings(leagueId) : await leagueCommands.matchups(leagueId);
+    const embed = new EmbedBuilder().setColor(0xd6a94b)
+      .setTitle(isStandings ? "The Trenches Standings" : "The Trenches Matchup Board")
+      .setDescription(isStandings ? "Live division records from LeagueOS" : "Live schedule and game status from LeagueOS")
+      .addFields(isStandings ? standingsFields(data) : matchupFields(data))
       .setTimestamp();
     await interaction.editReply({ embeds: [embed] });
   } catch (error) {
-    await interaction.editReply(`Standings are unavailable right now: ${error.message}`);
+    await interaction.editReply(`${interaction.commandName === "standings" ? "Standings" : "Matchups"} are unavailable right now: ${error.message}`);
   }
 });
 

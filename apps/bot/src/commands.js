@@ -13,6 +13,7 @@ export function createLeagueCommands({ apiBaseUrl, fetchImpl = fetch }) {
     standings: (leagueId) => get(`/api/leagues/${leagueId}/standings`),
     playoffRace: (leagueId) => get(`/api/leagues/${leagueId}/playoff-race`),
     powerRankings: (leagueId) => get(`/api/leagues/${leagueId}/power-rankings`),
+    matchups: (leagueId) => get(`/api/leagues/${leagueId}/games`),
     playerSearch: (leagueId, query) => get(`/api/leagues/${leagueId}/players?q=${encodeURIComponent(query)}`),
     teamList: (leagueId) => get(`/api/leagues/${leagueId}/teams`)
   };

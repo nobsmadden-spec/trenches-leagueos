@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { standingsFields } from "../src/formatters.js";
+import { matchupFields, standingsFields } from "../src/formatters.js";
 
 test("Discord standings formatter preserves division order and records", () => {
   const fields = standingsFields({
@@ -12,4 +12,27 @@ test("Discord standings formatter preserves division order and records", () => {
   assert.equal(fields[0].name, "AFC East");
   assert.match(fields[0].value, /1\. \*\*Buffalo Bills\*\* 8-2/);
   assert.match(fields[0].value, /2\. \*\*Miami Dolphins\*\* 7-3/);
+});
+
+test("Discord matchup formatter shows schedule status and final scores", () => {
+  const fields = matchupFields([
+    {
+      week: 8,
+      status: "scheduled",
+      scheduledAt: "Friday 9:00 PM ET",
+      awayTeam: { name: "Buffalo Bills", abbr: "BUF", wins: 6, losses: 1 },
+      homeTeam: { name: "Miami Dolphins", abbr: "MIA", wins: 5, losses: 2 }
+    },
+    {
+      week: 8,
+      status: "played",
+      awayScore: 24,
+      homeScore: 31,
+      awayTeam: { name: "Dallas Cowboys", abbr: "DAL", wins: 4, losses: 4 },
+      homeTeam: { name: "Detroit Lions", abbr: "DET", wins: 7, losses: 1 }
+    }
+  ]);
+  assert.match(fields[0].name, /Week 8 \| BUF at MIA/);
+  assert.match(fields[0].value, /Scheduled.*Friday 9:00 PM ET/);
+  assert.match(fields[1].value, /Final.*DAL 24 - DET 31/);
 });
