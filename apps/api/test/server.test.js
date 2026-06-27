@@ -84,6 +84,11 @@ test("static assets are served with their real content types", async () => {
   assert.match(script.body, /function setView/);
   assert.match(script.body, /Announcement cards are waiting on the latest API deploy/);
   assert.match(script.body, /Published media posts will appear here/);
+  assert.match(script.body, /Promise\.allSettled/);
+  assert.match(script.body, /Recent exports could not load/);
+  assert.match(script.body, /Imported teams could not load/);
+  assert.match(script.body, /trenches-leagueos\.onrender\.com/);
+  assert.match(script.body, /Live exports appear on the Render website/);
   assert.match(script.body, /escapeHtml/);
 });
 

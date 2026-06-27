@@ -1,4 +1,5 @@
 const leagueId = "the-trenches";
+const productionOrigin = "https://trenches-leagueos.onrender.com";
 
 // ── NFL Team Logo & Color Helpers ────────────────────────────────────────────
 const NFL_LOGO_MAP = {
@@ -55,12 +56,19 @@ function receiverUrl() {
   const current = $("#receiver-url")?.value || "";
   const tokenMatch = current.match(/\/token\/([^/?#]+)/);
   const token = tokenMatch?.[1] && tokenMatch[1] !== "YOUR_TOKEN" ? tokenMatch[1] : "YOUR_TOKEN";
-  return `${window.location.origin}/api/import-receivers/snallabot/${leagueId}/token/${token}`;
+  const publicOrigin = ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname) ? productionOrigin : window.location.origin;
+  return `${publicOrigin}/api/import-receivers/snallabot/${leagueId}/token/${token}`;
 }
 
 function updateReceiverUrl() {
   const field = $("#receiver-url");
   if (field) field.value = receiverUrl();
+  const note = $("#receiver-environment-note");
+  if (note) {
+    note.textContent = ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname)
+      ? "Snallabot sends to Render. Live exports appear on the Render website; localhost uses a separate Docker database."
+      : "This public receiver writes directly to the current league database.";
+  }
 }
 
 async function loadIdentity() {
@@ -556,7 +564,7 @@ async function copyMediaDraft(draftId) {
 }
 
 async function loadOffice() {
-  const [office, members, teams, imports, receiverAttempts, strikeBoard] = await Promise.all([
+  const results = await Promise.allSettled([
     currentRole === "commissioner" ? workspace : api("/workspace?role=commissioner"),
     api("/members"),
     api("/teams"),
@@ -564,13 +572,30 @@ async function loadOffice() {
     api("/receiver-attempts"),
     api("/strike-board")
   ]);
-  $("#office-actions").innerHTML = actionRows(office.actions);
-  renderSync($("#office-sync"), office.syncHealth);
-  renderStrikeBoard(strikeBoard);
-  $("#receiver-attempts").innerHTML = receiverAttempts.length ? `<h3 class="receiver-heading">Latest Snallabot Receiver Calls</h3>${receiverAttempts.map((attempt) => `<article class="import-run receiver-attempt"><div class="import-run-head"><strong>${attempt.status}</strong><span class="trade-status ${attempt.status === "accepted" ? "approved" : "denied"}">${attempt.statusCode}</span></div><small>${new Date(attempt.receivedAt).toLocaleString()}</small><p class="muted">${attempt.source || "snallabot-receiver"}</p><p class="muted">${attempt.message}</p><details><summary>Payload preview</summary><code>${JSON.stringify(attempt.preview)}</code></details></article>`).join("")}` : "";
-  $("#import-history").innerHTML = imports.length ? imports.map((run) => `<article class="import-run"><div class="import-run-head"><strong>${run.source}</strong><span class="trade-status ${run.status}">${run.status}</span></div><small>${run.completedAt ? new Date(run.completedAt).toLocaleString() : "Not completed"}</small><div class="import-datasets">${run.datasets.map((dataset) => `<span>${dataset.name}: ${dataset.records}</span>`).join("")}</div><details><summary>Raw fingerprints</summary>${run.rawExports.map((raw) => `<code>${raw.dataset} · ${raw.sha256.slice(0, 12)} · ${raw.storageKey}</code>`).join("") || "<p>No raw exports recorded.</p>"}</details></article>`).join("") : `<p class="empty">No imports have run yet.</p>`;
-  $("#open-teams").innerHTML = office.openTeams.map((team) => `<article><span class="mini-badge" style="--team-color:${getNFLColor(team.abbr, team.color)}">${teamLogoImg(team.abbr, 28)}</span><div><strong>${team.name}</strong><small>${record(team)} · ${team.conference} ${team.division}</small></div><button>Review applicants</button></article>`).join("");
-  $("#member-table").innerHTML = `<div class="member-row member-header"><span>Coach</span><span>Team</span><span>Role</span><span>Status</span><span></span></div>${members.map((member) => `<div class="member-row" data-member-id="${member.id}"><strong>${member.displayName}</strong><select data-field="teamId"><option value="">Unassigned</option>${teams.map((team) => `<option value="${team.id}" ${member.teamId === team.id ? "selected" : ""}>${team.abbr}</option>`).join("")}</select><select data-field="role"><option value="coach" ${member.role === "coach" ? "selected" : ""}>Coach</option><option value="commissioner" ${member.role === "commissioner" ? "selected" : ""}>Commissioner</option></select><select data-field="status"><option value="active" ${member.status === "active" ? "selected" : ""}>Active</option><option value="pending" ${member.status === "pending" ? "selected" : ""}>Pending</option><option value="suspended" ${member.status === "suspended" ? "selected" : ""}>Suspended</option><option value="removed" ${member.status === "removed" ? "selected" : ""}>Removed</option></select><button class="member-save">Save</button></div>`).join("")}`;
+  const valueAt = (index, fallback) => results[index].status === "fulfilled" && results[index].value !== undefined ? results[index].value : fallback;
+  const [office, members, teams, imports, receiverAttempts, strikeBoard] = [
+    valueAt(0, null), valueAt(1, []), valueAt(2, []), valueAt(3, []), valueAt(4, []), valueAt(5, null)
+  ];
+
+  $("#office-actions").innerHTML = office ? actionRows(office.actions || []) : `<p class="empty">League Office actions could not load.</p>`;
+  if (office) renderSync($("#office-sync"), office.syncHealth);
+  else $("#office-sync").innerHTML = `<p class="empty">Sync health could not load.</p>`;
+  if (strikeBoard) renderStrikeBoard(strikeBoard);
+  else $("#strike-board").innerHTML = `<p class="empty">Strike board could not load.</p>`;
+
+  $("#receiver-attempts").innerHTML = results[4].status === "rejected"
+    ? `<p class="empty">Recent receiver calls could not load.</p>`
+    : receiverAttempts.length ? `<h3 class="receiver-heading">Latest Snallabot Receiver Calls</h3>${receiverAttempts.map((attempt) => `<article class="import-run receiver-attempt"><div class="import-run-head"><strong>${escapeHtml(attempt.status)}</strong><span class="trade-status ${attempt.status === "accepted" ? "approved" : "denied"}">${escapeHtml(attempt.statusCode)}</span></div><small>${new Date(attempt.receivedAt).toLocaleString()}</small><p class="muted">${escapeHtml(attempt.source || "snallabot-receiver")}</p><p class="muted">${escapeHtml(attempt.message)}</p><details><summary>Payload preview</summary><code>${escapeHtml(JSON.stringify(attempt.preview))}</code></details></article>`).join("")}` : "";
+  $("#import-history").innerHTML = results[3].status === "rejected"
+    ? `<p class="empty">Recent exports could not load. Refresh the page or check the database connection.</p>`
+    : imports.length ? imports.map((run) => `<article class="import-run"><div class="import-run-head"><strong>${escapeHtml(run.source)}</strong><span class="trade-status ${escapeHtml(run.status)}">${escapeHtml(run.status)}</span></div><small>${run.completedAt ? new Date(run.completedAt).toLocaleString() : "Not completed"}</small><div class="import-datasets">${(run.datasets || []).map((dataset) => `<span>${escapeHtml(dataset.name)}: ${escapeHtml(dataset.records)}</span>`).join("")}</div><details><summary>Raw fingerprints</summary>${(run.rawExports || []).map((raw) => `<code>${escapeHtml(raw.dataset)} · ${escapeHtml(raw.sha256?.slice(0, 12))} · ${escapeHtml(raw.storageKey)}</code>`).join("") || "<p>No raw exports recorded.</p>"}</details></article>`).join("") : `<p class="empty">No imports have run yet.</p>`;
+
+  $("#open-teams").innerHTML = office
+    ? (office.openTeams || []).map((team) => `<article><span class="mini-badge" style="--team-color:${getNFLColor(team.abbr, team.color)}">${teamLogoImg(team.abbr, 28)}</span><div><strong>${escapeHtml(team.name)}</strong><small>${record(team)} · ${escapeHtml(team.conference)} ${escapeHtml(team.division)}</small></div><button>Review applicants</button></article>`).join("") || `<p class="muted">All imported teams currently have an assigned coach.</p>`
+    : `<p class="empty">Open teams could not load.</p>`;
+  $("#member-table").innerHTML = results[1].status === "rejected"
+    ? `<p class="empty">Coach assignments could not load.</p>`
+    : `<div class="member-row member-header"><span>Coach</span><span>Team</span><span>Role</span><span>Status</span><span></span></div>${results[2].status === "rejected" ? `<p class="empty">Imported teams could not load. Team assignment menus are temporarily unavailable.</p>` : ""}${members.map((member) => `<div class="member-row" data-member-id="${member.id}"><strong>${escapeHtml(member.displayName)}</strong><select data-field="teamId" ${results[2].status === "rejected" ? "disabled" : ""}><option value="">Unassigned</option>${teams.map((team) => `<option value="${team.id}" ${member.teamId === team.id ? "selected" : ""}>${escapeHtml(team.abbr)}</option>`).join("")}</select><select data-field="role"><option value="coach" ${member.role === "coach" ? "selected" : ""}>Coach</option><option value="commissioner" ${member.role === "commissioner" ? "selected" : ""}>Commissioner</option></select><select data-field="status"><option value="active" ${member.status === "active" ? "selected" : ""}>Active</option><option value="pending" ${member.status === "pending" ? "selected" : ""}>Pending</option><option value="suspended" ${member.status === "suspended" ? "selected" : ""}>Suspended</option><option value="removed" ${member.status === "removed" ? "selected" : ""}>Removed</option></select><button class="member-save">Save</button></div>`).join("")}`;
 }
 
 function strikeCaseRows(cases, emptyText) {
