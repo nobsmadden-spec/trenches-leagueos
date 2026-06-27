@@ -96,6 +96,9 @@ test("static assets are served with their real content types", async () => {
   assert.match(script.body, /function rosterGroups/);
   assert.match(script.body, /Full Imported Roster/);
   assert.match(script.body, /TOP 22 OVR/);
+  assert.match(script.body, /async function openTeamThread/);
+  assert.match(script.body, /data-open-team-thread/);
+  assert.match(script.body, /No Open Matchup/);
   assert.match(script.body, /function filterTradeAssets/);
   assert.match(script.body, /function updateTradeSelection/);
   assert.match(script.body, /escapeHtml/);

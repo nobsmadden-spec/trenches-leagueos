@@ -109,13 +109,14 @@ function setView(name) {
   document.querySelectorAll(".view").forEach((view) => view.classList.toggle("active", view.id === `${name}-view`));
   document.querySelectorAll(".nav-link").forEach((link) => link.classList.toggle("active", link.dataset.view === name));
   window.scrollTo({ top: 0, behavior: "smooth" });
-  if (name === "standings") loadStandings();
-  if (name === "matchups") loadMatchups();
-  if (name === "players") loadPlayers();
-  if (name === "team") loadTeam();
-  if (name === "trades") loadTrades();
-  if (name === "media") loadMedia();
-  if (name === "office") loadOffice();
+  if (name === "standings") return loadStandings();
+  if (name === "matchups") return loadMatchups();
+  if (name === "players") return loadPlayers();
+  if (name === "team") return loadTeam();
+  if (name === "trades") return loadTrades();
+  if (name === "media") return loadMedia();
+  if (name === "office") return loadOffice();
+  return Promise.resolve();
 }
 
 document.querySelectorAll("[data-view]").forEach((button) => button.addEventListener("click", () => setView(button.dataset.view)));
@@ -154,6 +155,11 @@ document.addEventListener("click", (event) => {
   const threadPreview = event.target.closest("[data-thread-preview]");
   if (threadPreview) {
     openThreadPreview(threadPreview.dataset.threadPreview);
+    return;
+  }
+  const teamThread = event.target.closest("[data-open-team-thread]");
+  if (teamThread) {
+    openTeamThread(teamThread.dataset.openTeamThread);
     return;
   }
   const teamProfile = event.target.closest("[data-team-profile]");
@@ -211,6 +217,12 @@ function openThreadPreview(gameId) {
   const panel = $("#game-thread-preview");
   panel.classList.remove("hidden");
   panel.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+async function openTeamThread(gameId) {
+  if (!gameId) return;
+  await setView("matchups");
+  openThreadPreview(gameId);
 }
 
 function recordThreadOutcome(outcome) {
@@ -397,7 +409,7 @@ async function loadTeam(nextTeamId = selectedTeamId) {
     const opponentTeam = isHome ? game.awayTeam : game.homeTeam;
     const score = game.status === "played" ? `${game.awayScore ?? "-"}-${game.homeScore ?? "-"}` : game.scheduledAt || "Not scheduled";
     return `<div class="schedule-line"><span>W${game.week || "--"}</span><strong>${isHome ? "vs." : "at"} ${opponentTeam?.name || "TBD"}</strong><b>${score}</b></div>`;
-  }).join("") : `<p class="muted">Schedule arrives with the league export.</p>`}</div><button class="primary-button">Open Game Thread</button></section><section class="panel"><div class="panel-heading"><div><span>Roster room</span><h2>Full Imported Roster</h2></div><span class="muted">${roster.length} players · sorted by OVR</span></div>${roster.length ? rosterGroups(roster) : `<p class="muted">Full roster arrives with the EA importer.</p>`}<div class="draft-picks">${(team.draftPicks || []).map((pick) => `<span>${pick}</span>`).join("")}</div></section></div>`;
+  }).join("") : `<p class="muted">Schedule arrives with the league export.</p>`}</div><button class="primary-button" type="button" ${opponentGame ? `data-open-team-thread="${escapeHtml(opponentGame.id || opponentGame.externalId)}"` : "disabled"}>${opponentGame ? "Open Game Thread" : "No Open Matchup"}</button></section><section class="panel"><div class="panel-heading"><div><span>Roster room</span><h2>Full Imported Roster</h2></div><span class="muted">${roster.length} players · sorted by OVR</span></div>${roster.length ? rosterGroups(roster) : `<p class="muted">Full roster arrives with the EA importer.</p>`}<div class="draft-picks">${(team.draftPicks || []).map((pick) => `<span>${pick}</span>`).join("")}</div></section></div>`;
 }
 
 $("#team-picker").addEventListener("change", (event) => loadTeam(event.target.value));

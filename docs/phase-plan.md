@@ -47,6 +47,44 @@ Start Phase 2 only after the Phase 1 gate above passes. Connect a versioned clea
 - [x] Add CSV-to-bundle mapper for commissioner-owned exports
 - [x] Add browser CSV upload path for teams, players, standings, and games
 - [x] Add Snallabot-shaped export adapter for teams, standings, schedules, and rosters
-- [ ] Connect a real Madden export acquisition source
+- [x] Connect Snallabot as the real Madden export acquisition source
 
 Snallabot reference decision: reuse their workflow as an acquisition/export source where possible. The Trenches should ingest exported league data, preserve the raw payload, and normalize it into LeagueOS datasets rather than duplicating EA login, persona selection, queueing, and command code.
+
+## Phase 3: AI content and league intelligence
+
+Do not interrupt the active import, roster, and trade workflow for this phase. Begin after live roster and weekly-stat data are consistently normalized and visible across web and Discord.
+
+### Analytics foundation
+
+- [ ] Build deterministic team tendency profiles from imported game, roster, and weekly-stat data
+- [ ] Build matchup comparison models for offense, defense, key personnel, injuries/availability, recent form, and coach activity
+- [ ] Build opponent-specific game-plan inputs with strengths, pressure points, counters, and measurable supporting evidence
+- [ ] Connect spendable recognition perks to gated analytics products: offensive game plan, defensive game plan, opponent tendency report, scouting focus, and draft war-room intel
+- [ ] Record perk purchases, generated outputs, data version, season, week, matchup, and expiration so advice is auditable
+- [ ] Keep calculations deterministic; AI explains and packages the results but does not invent statistics or unsupported certainty
+
+### Generated weekly content
+
+- [ ] Game of the Week package: branded AI-generated visual, NFL-style matchup preview, coach tags, key players, statistical edges, prediction, stream link, and Discord-ready copy
+- [ ] Weekly recap package: scores, turning points, standout performances, awards, standings movement, playoff impact, and next-week hooks
+- [ ] Reporter posts: distinct reporter voices, rumors clearly labeled as commentary, transaction reactions, coach quotes, and evolving league storylines
+- [ ] Props package: virtual-currency player/team props, transparent source statistics, settlement rules, and responsible non-cash framing
+- [ ] Season statistics package: leaderboards, pace projections, records watch, historical comparisons, and award races
+- [ ] Generate web cards and Discord posts from the same structured content record so facts remain consistent across surfaces
+
+### Visual and publishing system
+
+- [ ] Create reusable branded templates for GOTW, weekly awards, recaps, power rankings, playoff pictures, draft grades, and record alerts
+- [ ] Support AI-generated backgrounds and editorial art while keeping team marks, player names, scores, and statistics in controlled layout layers
+- [ ] Add commissioner preview, regenerate, edit, approve, schedule, and publish controls
+- [ ] Publish through configured Discord channels with role mentions, image attachments, embeds, and links back to LeagueOS
+- [ ] Preserve every prompt, input fingerprint, output version, approval event, and published message ID
+
+### Phase 3 acceptance gate
+
+1. No generated post may cite a statistic that is absent from the normalized league dataset.
+2. Every preview and game plan must show its data week and last import time.
+3. Spendable perks must produce private, matchup-specific value and cannot expose another coach's private report.
+4. Props remain virtual-currency only and settle from imported final results.
+5. Commissioners can edit or reject all AI output before public posting.
