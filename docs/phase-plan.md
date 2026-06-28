@@ -57,8 +57,8 @@ Do not interrupt the active import, roster, and trade workflow for this phase. B
 
 ### Analytics foundation
 
-- [ ] Build deterministic team tendency profiles from imported game, roster, and weekly-stat data
-- [ ] Build matchup comparison models for offense, defense, key personnel, injuries/availability, recent form, and coach activity
+- [x] Build deterministic team tendency profiles from imported standings, game, and roster data
+- [ ] Build matchup comparison models for offense, defense, key personnel, injuries/availability, recent form, and coach activity (core comparison is live; injury and direct coach-activity feeds remain pending)
 - [ ] Build opponent-specific game-plan inputs with strengths, pressure points, counters, and measurable supporting evidence
 - [ ] Connect spendable recognition perks to gated analytics products: offensive game plan, defensive game plan, opponent tendency report, scouting focus, and draft war-room intel
 - [ ] Record perk purchases, generated outputs, data version, season, week, matchup, and expiration so advice is auditable

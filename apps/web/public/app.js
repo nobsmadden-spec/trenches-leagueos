@@ -204,7 +204,19 @@ function threadTeam(team = {}, label) {
   return `<article class="thread-team" style="--team-color:${team.color || "#64748b"}"><span>${label}</span><div><strong>${team.name || "Team TBD"}</strong><small>${record(team)} · ${team.conference || "Conference"} ${team.division || ""}</small></div><b>${diff >= 0 ? "+" : ""}${diff} DIFF</b></article>`;
 }
 
-function openThreadPreview(gameId) {
+function matchupIntelligenceCard(intelligence) {
+  const away = intelligence.away || {};
+  const home = intelligence.home || {};
+  const teamLabel = (teamId) => teamId === "even" ? "Even" : teamId === away.teamId ? away.abbr : home.abbr;
+  const edges = (intelligence.edges || []).map((edge) => `<article class="intelligence-edge"><span>${escapeHtml(edge.label)}</span><div><strong>${escapeHtml(away.abbr)} ${escapeHtml(edge.awayValue)}${escapeHtml(edge.unit)}</strong><em>vs</em><strong>${escapeHtml(home.abbr)} ${escapeHtml(edge.homeValue)}${escapeHtml(edge.unit)}</strong></div><b>${escapeHtml(teamLabel(edge.advantage))}</b><small>${escapeHtml(edge.evidence)}</small></article>`).join("");
+  const personnel = (profile) => `<div class="intelligence-personnel"><strong>${escapeHtml(profile.abbr)} key personnel</strong>${(profile.keyPersonnel || []).slice(0, 3).map((player) => `<span>${escapeHtml(player.position)} ${escapeHtml(player.name)} <b>${escapeHtml(player.overall)}</b></span>`).join("") || `<span>No rated roster data.</span>`}</div>`;
+  const imported = intelligence.lastImportAt ? new Date(intelligence.lastImportAt) : null;
+  const importLabel = imported && !Number.isNaN(imported.valueOf()) ? imported.toLocaleString() : "import time unavailable";
+  const unavailable = intelligence.coverage?.unavailable?.length ? `Unavailable inputs: ${intelligence.coverage.unavailable.join(", ")}.` : "All configured inputs available.";
+  return `<section class="thread-intelligence"><div class="intelligence-heading"><div><span>Deterministic matchup model</span><h3>${escapeHtml(intelligence.projection?.winnerName || "Toss-up")} · ${escapeHtml(intelligence.projection?.confidence || "slight")} lean</h3></div><b>WEEK ${escapeHtml(intelligence.dataWeek ?? intelligence.week ?? "--")}</b></div><p>${escapeHtml(intelligence.projection?.note || "No clear projection is available.")}</p><div class="intelligence-edge-grid">${edges}</div><div class="intelligence-personnel-grid">${personnel(away)}${personnel(home)}</div><footer>${escapeHtml(intelligence.methodology)}<br>${escapeHtml(unavailable)}<br>Season ${escapeHtml(intelligence.season ?? "--")} · ${escapeHtml(importLabel)}</footer></section>`;
+}
+
+async function openThreadPreview(gameId) {
   const game = matchupCache.find((item) => String(item.id) === String(gameId) || String(item.externalId) === String(gameId));
   if (!game) return;
   activeThreadGameId = game.id || game.externalId;
@@ -214,10 +226,20 @@ function openThreadPreview(gameId) {
   const scoreLine = isFinal ? `Final score: ${away.abbr || "Away"} ${game.awayScore ?? "-"}, ${home.abbr || "Home"} ${game.homeScore ?? "-"}` : `Kickoff: ${game.scheduledAt || "time still needs to be confirmed"}`;
   $("#thread-title").textContent = `${away.abbr || "Away"} at ${home.abbr || "Home"}`;
   const commissionerActions = currentRole === "commissioner" ? `<button type="button" data-thread-outcome="force_win_away">FW ${away.abbr || "Away"}</button><button type="button" data-thread-outcome="force_win_home">FW ${home.abbr || "Home"}</button><button class="danger-button" type="button" data-thread-outcome="strike_away">Strike ${away.abbr || "Away"}</button><button class="danger-button" type="button" data-thread-outcome="strike_home">Strike ${home.abbr || "Home"}</button>` : "";
-  $("#thread-preview-body").innerHTML = `<div class="thread-copy"><p class="eyebrow">${gameStatusLabel(game)} · Week ${game.week || "--"}</p><h3>${away.name || "Away Team"} at ${home.name || "Home Team"}</h3><p>${scoreLine}</p></div><div class="thread-team-grid">${threadTeam(away, "Away coach")}${threadTeam(home, "Home coach")}</div><div class="thread-outcomes"><button class="success-button" type="button" data-thread-outcome="played">Game Completed</button><button type="button" data-thread-outcome="fair_sim">Fair Sim</button><button type="button" data-thread-outcome="cpu">CPU Game</button>${commissionerActions}</div><div id="thread-outcome-result" class="thread-outcome-result muted">Choose an outcome to record it in LeagueOS.</div><div class="thread-checklist"><strong>Thread checklist</strong><span>Tag both coaches</span><span>Confirm kickoff window</span><span>Post stream or proof link</span><span>${isFinal ? "Mark final and archive" : "Track activity until final"}</span></div>`;
+  $("#thread-preview-body").innerHTML = `<div class="thread-copy"><p class="eyebrow">${gameStatusLabel(game)} · Week ${game.week || "--"}</p><h3>${away.name || "Away Team"} at ${home.name || "Home Team"}</h3><p>${scoreLine}</p></div><div class="thread-team-grid">${threadTeam(away, "Away coach")}${threadTeam(home, "Home coach")}</div><div id="thread-intelligence" class="thread-intelligence-loading">Calculating matchup edges from imported standings and rosters...</div><div class="thread-outcomes"><button class="success-button" type="button" data-thread-outcome="played">Game Completed</button><button type="button" data-thread-outcome="fair_sim">Fair Sim</button><button type="button" data-thread-outcome="cpu">CPU Game</button>${commissionerActions}</div><div id="thread-outcome-result" class="thread-outcome-result muted">Choose an outcome to record it in LeagueOS.</div><div class="thread-checklist"><strong>Thread checklist</strong><span>Tag both coaches</span><span>Confirm kickoff window</span><span>Post stream or proof link</span><span>${isFinal ? "Mark final and archive" : "Track activity until final"}</span></div>`;
   const panel = $("#game-thread-preview");
   panel.classList.remove("hidden");
   panel.scrollIntoView({ behavior: "smooth", block: "start" });
+  const requestedGameId = activeThreadGameId;
+  try {
+    const intelligence = await api(`/games/${encodeURIComponent(game.id || game.externalId)}/intelligence`);
+    if (activeThreadGameId !== requestedGameId) return;
+    const target = $("#thread-intelligence");
+    if (target) target.outerHTML = matchupIntelligenceCard(intelligence);
+  } catch (error) {
+    const target = $("#thread-intelligence");
+    if (target) target.innerHTML = `Matchup intelligence is unavailable: ${escapeHtml(error.message)}`;
+  }
 }
 
 async function openTeamThread(gameId) {

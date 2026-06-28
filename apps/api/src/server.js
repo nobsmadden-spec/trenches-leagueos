@@ -4,7 +4,7 @@ import { extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 import { loadEnvFile } from "../../../packages/config/src/env.js";
 import { normalizeExport } from "../../../packages/ea-importer/src/index.js";
-import { playoffRace, powerRankings, standingsByDivision } from "../../../packages/league-core/src/index.js";
+import { matchupComparison, playoffRace, powerRankings, standingsByDivision } from "../../../packages/league-core/src/index.js";
 import {
   clearSessionCookie,
   createOAuthState,
@@ -248,6 +248,19 @@ function enrichGame(league, game) {
   return { ...game, awayTeam: repository.getTeam(league, game.awayTeamId), homeTeam: repository.getTeam(league, game.homeTeamId) };
 }
 
+function matchupIntelligenceFor(league, game) {
+  if (!game) return null;
+  const awayTeam = repository.getTeam(league, game.awayTeamId);
+  const homeTeam = repository.getTeam(league, game.homeTeamId);
+  if (!awayTeam || !homeTeam) return null;
+  return {
+    season: league.season,
+    dataWeek: league.week,
+    lastImportAt: league.syncHealth?.lastCompletedAt || null,
+    ...matchupComparison({ game, awayTeam, homeTeam, players: league.players || [], games: league.games || [] })
+  };
+}
+
 function recordLine(team = {}) {
   return Number.isFinite(Number(team.wins)) && Number.isFinite(Number(team.losses)) ? `${team.wins}-${team.losses}${team.ties ? `-${team.ties}` : ""}` : "--";
 }
@@ -260,6 +273,13 @@ async function mediaDraftsFor(league, identity) {
   const recognition = hasLeagueRole(identity, league.id, "coach") ? await recognitionView(league, identity) : null;
   const topRanked = powerRankings(league.teams).slice(0, 3);
   const matchupTitle = featuredGame?.awayTeam && featuredGame?.homeTeam ? `${featuredGame.awayTeam.name} at ${featuredGame.homeTeam.name}` : "Featured matchup";
+  const matchupIntelligence = featuredGame ? matchupIntelligenceFor(league, featuredGame) : null;
+  const edgeLines = matchupIntelligence?.edges?.slice(0, 4).map((edge) => {
+    const winner = edge.advantage === "even"
+      ? "Even"
+      : edge.advantage === featuredGame.awayTeamId ? featuredGame.awayTeam?.abbr : featuredGame.homeTeam?.abbr;
+    return `${edge.label}: ${edge.evidence} - ${winner}`;
+  }).join("\n");
   const leaderLines = leaderCategory?.leaders?.length
     ? leaderCategory.leaders.map((leader, index) => `${index + 1}. ${leader.name} - ${leader.value} ${leaderCategory.metric}${leader.team ? `, ${leader.team}` : ""}`).join("\n")
     : topRanked.map((team, index) => `${index + 1}. ${team.name} - ${recordLine(team)}, ${team.powerScore} power score`).join("\n");
@@ -276,7 +296,7 @@ async function mediaDraftsFor(league, identity) {
       type: "Matchup Watch",
       channel: "#game-threads",
       title: matchupTitle,
-      body: `${matchupTitle}\n\n${featuredGame?.awayTeam?.abbr || "AWY"} ${recordLine(featuredGame?.awayTeam)} vs ${featuredGame?.homeTeam?.abbr || "HME"} ${recordLine(featuredGame?.homeTeam)}\nKickoff: ${featuredGame?.scheduledAt || "time still needs to be confirmed"}\n\nQuick read: watch the first clean possession, turnover margin, and fourth-quarter clock management.`
+      body: `${matchupTitle}\n\n${featuredGame?.awayTeam?.abbr || "AWY"} ${recordLine(featuredGame?.awayTeam)} vs ${featuredGame?.homeTeam?.abbr || "HME"} ${recordLine(featuredGame?.homeTeam)}\nKickoff: ${featuredGame?.scheduledAt || "time still needs to be confirmed"}\n\nMeasured edges\n${edgeLines || "Matchup edges are waiting on standings and roster data."}\n\nProjection: ${matchupIntelligence?.projection?.note || "Not enough normalized data for a projection."}\nData: Season ${league.season}, Week ${league.week}${matchupIntelligence?.lastImportAt ? `, imported ${matchupIntelligence.lastImportAt}` : ""}.`
     },
     {
       id: "stat-leader-spotlight",
@@ -609,6 +629,14 @@ async function leagueRoute(request, response, url, identity) {
     } catch (error) {
       return sendJson(response, 400, { error: "Unable to activate perk", detail: error.message }) ?? true;
     }
+  }
+  if (resource?.startsWith("games/") && resource.endsWith("/intelligence") && request.method === "GET") {
+    const gameId = decodeURIComponent(resource.slice("games/".length, -"/intelligence".length));
+    const game = league.games.find((entry) => String(entry.id) === gameId || String(entry.externalId) === gameId);
+    if (!game) return sendJson(response, 404, { error: "Game not found" }) ?? true;
+    const intelligence = matchupIntelligenceFor(league, game);
+    if (!intelligence) return sendJson(response, 409, { error: "Both matchup teams must be imported before intelligence can be calculated" }) ?? true;
+    return sendJson(response, 200, intelligence) ?? true;
   }
   if (resource?.startsWith("games/") && resource.endsWith("/outcome") && request.method === "PATCH") {
     if (!hasLeagueRole(identity, league.id, "coach")) return sendJson(response, identity ? 403 : 401, { error: "League membership required" }) ?? true;

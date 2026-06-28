@@ -47,6 +47,11 @@ test("health and league summary APIs respond", async () => {
   assert.equal(games.status, 200);
   assert.ok(games.json[0].awayTeam);
   assert.ok(games.json[0].homeTeam);
+  const intelligence = await get(`/api/leagues/the-trenches/games/${games.json[0].id}/intelligence`);
+  assert.equal(intelligence.status, 200);
+  assert.equal(intelligence.json.dataWeek, 11);
+  assert.ok(intelligence.json.edges.some((edge) => edge.label === "Scoring"));
+  assert.match(intelligence.json.projection.note, /measured edges|clear favorite/);
   const strikeBoard = await get("/api/leagues/the-trenches/strike-board");
   assert.equal(strikeBoard.status, 200);
   assert.equal(strikeBoard.json.rules.hardLimit, 5);
@@ -71,6 +76,7 @@ test("health and league summary APIs respond", async () => {
   const mediaDrafts = await get("/api/leagues/the-trenches/media-drafts");
   assert.equal(mediaDrafts.status, 200);
   assert.ok(mediaDrafts.json.some((draft) => draft.channel === "#announcements" && draft.body.includes("Week 11")));
+  assert.ok(mediaDrafts.json.some((draft) => draft.id === "matchup-watch" && draft.body.includes("Measured edges")));
   const me = await get("/api/me");
   assert.equal(me.json.authenticated, true);
 });
@@ -97,6 +103,8 @@ test("static assets are served with their real content types", async () => {
   assert.match(script.body, /Full Imported Roster/);
   assert.match(script.body, /TOP 22 OVR/);
   assert.match(script.body, /async function openTeamThread/);
+  assert.match(script.body, /function matchupIntelligenceCard/);
+  assert.match(script.body, /\/intelligence/);
   assert.match(script.body, /async function recordThreadOutcome/);
   assert.match(script.body, /Recording outcome/);
   assert.match(script.body, /data-open-team-thread/);

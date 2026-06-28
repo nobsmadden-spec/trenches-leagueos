@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { compareTeams, playoffRace, powerRankings, standingsByDivision } from "../src/index.js";
+import { compareTeams, matchupComparison, playoffRace, powerRankings, standingsByDivision, teamTendencyProfile } from "../src/index.js";
 
 const team = (id, overrides = {}) => ({
   id, name: id, conference: "AFC", division: "East", wins: 5, losses: 5, ties: 0,
@@ -35,4 +35,30 @@ test("power rankings reward winning and recent form", () => {
   const rankings = powerRankings([team("average"), team("elite", { wins: 9, losses: 1, last5Wins: 5, last5Losses: 0 })]);
   assert.equal(rankings[0].id, "elite");
   assert.equal(rankings[0].rank, 1);
+});
+
+test("team tendency profiles use recorded standings and roster ratings", () => {
+  const bills = team("buf", { name: "Bills", abbr: "BUF", wins: 8, losses: 2, pointsFor: 280, pointsAgainst: 180, turnoverDiff: 8 });
+  const profile = teamTendencyProfile(bills, {
+    players: [
+      { id: "qb", teamId: "buf", name: "Quarterback", position: "QB", overall: 90 },
+      { id: "cb", teamId: "buf", name: "Corner", position: "CB", overall: 88 }
+    ]
+  });
+  assert.equal(profile.metrics.pointsPerGame, 28);
+  assert.equal(profile.metrics.pointsAllowedPerGame, 18);
+  assert.equal(profile.metrics.offenseOverall, 90);
+  assert.equal(profile.keyPersonnel[0].name, "Quarterback");
+  assert.ok(profile.strengths.some((item) => item.label === "Scoring pace"));
+});
+
+test("matchup comparisons expose auditable edges and a deterministic projection", () => {
+  const awayTeam = team("buf", { name: "Bills", abbr: "BUF", wins: 8, losses: 2, pointsFor: 280, pointsAgainst: 180, last5Wins: 5, last5Losses: 0 });
+  const homeTeam = team("mia", { name: "Dolphins", abbr: "MIA", wins: 5, losses: 5, pointsFor: 210, pointsAgainst: 230, last5Wins: 2, last5Losses: 3 });
+  const result = matchupComparison({ game: { id: "game-1", week: 11 }, awayTeam, homeTeam });
+  assert.equal(result.gameId, "game-1");
+  assert.equal(result.projection.winnerTeamId, "buf");
+  assert.ok(result.edgeCount.away > result.edgeCount.home);
+  assert.deepEqual(result.coverage.unavailable, ["injuries", "direct coach activity"]);
+  assert.match(result.methodology, /No generated or inferred statistics/);
 });
