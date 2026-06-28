@@ -112,6 +112,15 @@ function recentRecord(team, games) {
 
 export function teamTendencyProfile(team, { players = [], games = [] } = {}) {
   const roster = players.filter((player) => player.teamId === team.id);
+  const availabilityRows = roster.filter((player) => {
+    const attributes = player.attributes || {};
+    return attributes.injuryLength !== undefined || attributes.injuryType !== undefined || attributes.isOnIr !== undefined;
+  });
+  const unavailablePlayers = availabilityRows.filter((player) => {
+    const attributes = player.attributes || {};
+    return Number(attributes.injuryLength || 0) > 0 || attributes.isOnIr === true;
+  });
+  const expiringContracts = roster.filter((player) => Number(player.attributes?.contractYears) === 1);
   const gamesPlayed = Math.max(1, number(team.wins) + number(team.losses) + number(team.ties));
   const pointsPerGame = rounded(number(team.pointsFor) / gamesPlayed);
   const pointsAllowedPerGame = rounded(number(team.pointsAgainst) / gamesPlayed);
@@ -148,6 +157,24 @@ export function teamTendencyProfile(team, { players = [], games = [] } = {}) {
     ratings,
     strengths,
     pressurePoints,
+    availability: {
+      tracked: availabilityRows.length,
+      unavailable: unavailablePlayers.length,
+      available: Math.max(0, availabilityRows.length - unavailablePlayers.length),
+      expiringContracts: expiringContracts.length,
+      players: unavailablePlayers
+        .sort((a, b) => number(b.overall) - number(a.overall) || a.name.localeCompare(b.name))
+        .slice(0, 5)
+        .map((player) => ({
+          id: player.id,
+          name: player.name,
+          position: player.position,
+          overall: Number.isFinite(Number(player.overall)) ? number(player.overall) : null,
+          injuryLength: number(player.attributes?.injuryLength),
+          injuryType: player.attributes?.injuryType || null,
+          isOnIr: player.attributes?.isOnIr === true
+        }))
+    },
     keyPersonnel: roster
       .filter((player) => Number.isFinite(Number(player.overall)))
       .sort((a, b) => number(b.overall) - number(a.overall) || a.name.localeCompare(b.name))
@@ -186,6 +213,9 @@ export function matchupComparison({ game, awayTeam, homeTeam, players = [], game
   if (away.metrics.defenseOverall !== null && home.metrics.defenseOverall !== null) {
     edges.push(edge("defense-personnel", "Defensive personnel", away.metrics.defenseOverall, home.metrics.defenseOverall, { unit: " OVR" }, awayTeam, homeTeam));
   }
+  if (away.availability.tracked && home.availability.tracked) {
+    edges.push(edge("availability", "Roster availability", away.availability.unavailable, home.availability.unavailable, { lowerIsBetter: true, unit: " unavailable" }, awayTeam, homeTeam));
+  }
   const awayEdgeCount = edges.filter((item) => item.advantage === awayTeam.id).length;
   const homeEdgeCount = edges.filter((item) => item.advantage === homeTeam.id).length;
   const awayScore = away.ratings.offense * 0.35 + away.ratings.defense * 0.35 + away.ratings.form * 0.2 + (away.metrics.offenseOverall ?? 75) * 0.05 + (away.metrics.defenseOverall ?? 75) * 0.05;
@@ -212,10 +242,13 @@ export function matchupComparison({ game, awayTeam, homeTeam, players = [], game
       standings: true,
       rosterRatings: players.some((player) => player.teamId === awayTeam.id || player.teamId === homeTeam.id),
       recentFinals: games.some((entry) => entry.status === "played"),
-      injuries: false,
+      injuries: Boolean(away.availability.tracked && home.availability.tracked),
       coachActivity: false,
-      unavailable: ["injuries", "direct coach activity"]
+      unavailable: [
+        ...(away.availability.tracked && home.availability.tracked ? [] : ["injuries"]),
+        "direct coach activity"
+      ]
     },
-    methodology: "Standings pace, scoring defense, point differential, recent imported finals, and top-unit roster ratings. No generated or inferred statistics."
+    methodology: "Standings pace, scoring defense, point differential, recent imported finals, top-unit roster ratings, and explicit imported availability when present. No generated or inferred statistics."
   };
 }

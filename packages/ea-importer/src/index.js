@@ -164,6 +164,17 @@ function snallabotId(value) {
   return String(value);
 }
 
+function snallabotBoolean(value) {
+  if (value === undefined || value === null || value === "") return null;
+  if (typeof value === "boolean") return value;
+  if (typeof value === "string") {
+    if (["true", "yes", "y"].includes(value.toLowerCase())) return true;
+    if (["false", "no", "n"].includes(value.toLowerCase())) return false;
+  }
+  const number = Number(value);
+  return Number.isFinite(number) ? number !== 0 : null;
+}
+
 export function csvSourcesToLeagueOsImportV1({ source = "csv-upload", season, week, teamsCsv, playersCsv, standingsCsv, gamesCsv }) {
   const teams = parseCsv(teamsCsv).map((row) => ({
     externalId: firstValue(row, ["externalId", "teamId", "id", "abbr", "abbreviation"]),
@@ -180,7 +191,17 @@ export function csvSourcesToLeagueOsImportV1({ source = "csv-upload", season, we
     position: firstValue(row, ["position", "pos"]),
     overall: firstValue(row, ["overall", "ovr"]),
     devTrait: firstValue(row, ["devTrait", "dev", "trait"]),
-    age: firstValue(row, ["age"])
+    age: firstValue(row, ["age"]),
+    attributes: compactObject({
+      injuryLength: firstValue(row, ["injuryLength", "injuryWeeks"]),
+      injuryType: firstValue(row, ["injuryType", "injury"]),
+      isOnIr: snallabotBoolean(firstValue(row, ["isOnIr", "isOnIR", "ir"])),
+      contractYears: firstValue(row, ["contractYears", "yearsRemaining"]),
+      contractSalary: firstValue(row, ["contractSalary", "salary"]),
+      speedRating: firstValue(row, ["speedRating", "speed", "spd"]),
+      awarenessRating: firstValue(row, ["awarenessRating", "awareness", "awr"]),
+      strengthRating: firstValue(row, ["strengthRating", "strength", "str"])
+    })
   }));
   const standings = parseCsv(standingsCsv).map((row) => ({
     teamExternalId: firstValue(row, ["teamExternalId", "teamId", "team", "abbr"]),
@@ -249,6 +270,12 @@ export function snallabotExportsToLeagueOsImportV1(bundle) {
       weight: player.weight,
       yearsPro: player.yearsPro,
       college: player.college,
+      injuryLength: player.injuryLength ?? player.injuryDuration ?? player.injury_length,
+      injuryType: player.injuryType ?? player.injuryName ?? player.injury_type,
+      isOnIr: snallabotBoolean(player.isOnIr ?? player.isOnIR ?? player.injuryReserve ?? player.is_on_ir),
+      contractYears: player.contractYears ?? player.contractLength ?? player.contract_years,
+      contractSalary: player.contractSalary ?? player.salary ?? player.contract_salary,
+      contractBonus: player.contractBonus ?? player.signingBonus ?? player.contract_bonus,
       speedRating: player.speedRating,
       accelerationRating: player.accelerationRating,
       strengthRating: player.strengthRating,

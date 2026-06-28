@@ -62,3 +62,19 @@ test("matchup comparisons expose auditable edges and a deterministic projection"
   assert.deepEqual(result.coverage.unavailable, ["injuries", "direct coach activity"]);
   assert.match(result.methodology, /No generated or inferred statistics/);
 });
+
+test("matchup comparisons use explicit imported availability without inventing injuries", () => {
+  const awayTeam = team("buf", { name: "Bills", abbr: "BUF" });
+  const homeTeam = team("mia", { name: "Dolphins", abbr: "MIA" });
+  const players = [
+    { id: "buf-qb", teamId: "buf", name: "Bills QB", position: "QB", overall: 90, attributes: { injuryLength: 2, injuryType: "Shoulder", isOnIr: false, contractYears: 1 } },
+    { id: "buf-cb", teamId: "buf", name: "Bills CB", position: "CB", overall: 88, attributes: { injuryLength: 0, isOnIr: false } },
+    { id: "mia-qb", teamId: "mia", name: "Dolphins QB", position: "QB", overall: 89, attributes: { injuryLength: 0, isOnIr: false } }
+  ];
+  const result = matchupComparison({ game: { id: "game-availability" }, awayTeam, homeTeam, players });
+  assert.equal(result.away.availability.unavailable, 1);
+  assert.equal(result.away.availability.expiringContracts, 1);
+  assert.equal(result.coverage.injuries, true);
+  assert.deepEqual(result.coverage.unavailable, ["direct coach activity"]);
+  assert.equal(result.edges.find((item) => item.id === "availability").advantage, "mia");
+});

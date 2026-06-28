@@ -389,7 +389,12 @@ async function loadStandings() {
 
 async function loadPlayers(query = "") {
   const players = await api(`/players?q=${encodeURIComponent(query)}`);
-  $("#player-results").innerHTML = players.length ? players.map((player) => `<article class="player-card" data-position="${player.position}"><div class="player-top"><div><h3>${player.name}</h3><p>${player.team?.name || "Free Agent"}</p></div><div class="ovr">${player.overall ?? "--"}<small>OVR</small></div></div><div class="player-meta"><span>${player.position || "POS"}</span><span>${player.devTrait || "Normal"}</span><span>AGE ${player.age ?? "--"}</span></div><div class="player-stat"><span>${player.statLabel || "Overall"}</span><strong>${Number(player.statValue || player.overall || 0).toLocaleString()}</strong></div></article>`).join("") : `<p class="empty">No players match “${query}”.</p>`;
+  $("#player-results").innerHTML = players.length ? players.map((player) => {
+    const attributes = player.attributes || {};
+    const injuryWeeks = Number(attributes.injuryLength || 0);
+    const unavailable = injuryWeeks > 0 || attributes.isOnIr === true;
+    return `<article class="player-card" data-position="${player.position}"><div class="player-top"><div><h3>${escapeHtml(player.name)}</h3><p>${escapeHtml(player.team?.name || "Free Agent")}</p></div><div class="ovr">${player.overall ?? "--"}<small>OVR</small></div></div><div class="player-meta"><span>${escapeHtml(player.position || "POS")}</span><span>${escapeHtml(player.devTrait || "Normal")}</span><span>AGE ${player.age ?? "--"}</span>${unavailable ? `<span class="availability-alert">${attributes.isOnIr ? "IR" : `${injuryWeeks}W OUT`}</span>` : ""}</div><div class="player-stat"><span>${player.statLabel || "Overall"}</span><strong>${Number(player.statValue || player.overall || 0).toLocaleString()}</strong></div></article>`;
+  }).join("") : `<p class="empty">No players match “${query}”.</p>`;
 }
 
 const rosterLanes = {
@@ -410,7 +415,14 @@ function rosterGroups(roster) {
   }
   return ["Offense", "Defense", "Special Teams", "Other"].filter((lane) => groups.has(lane)).map((lane, index) => {
     const players = groups.get(lane);
-    return `<details class="roster-group" ${index < 2 ? "open" : ""}><summary><strong>${lane}</strong><span>${players.length} players</span></summary><div>${players.map((player) => `<div class="roster-line"><span>${escapeHtml(player.position)}</span><strong>${escapeHtml(player.name)}</strong><b>${player.overall ?? "--"}</b></div>`).join("")}</div></details>`;
+    return `<details class="roster-group" ${index < 2 ? "open" : ""}><summary><strong>${lane}</strong><span>${players.length} players</span></summary><div>${players.map((player) => {
+      const attributes = player.attributes || {};
+      const injuryWeeks = Number(attributes.injuryLength || 0);
+      const contractYears = Number(attributes.contractYears);
+      const unavailable = injuryWeeks > 0 || attributes.isOnIr === true;
+      const contract = Number.isFinite(contractYears) && contractYears > 0 ? `${contractYears}Y` : "";
+      return `<div class="roster-line"><span>${escapeHtml(player.position)}</span><strong>${escapeHtml(player.name)}${unavailable ? `<small class="availability-alert">${attributes.isOnIr ? "IR" : `${injuryWeeks}W OUT`}</small>` : ""}</strong><em>${contract}</em><b>${player.overall ?? "--"}</b></div>`;
+    }).join("")}</div></details>`;
   }).join("");
 }
 
@@ -431,10 +443,12 @@ async function loadTeam(nextTeamId = selectedTeamId) {
   const roster = team.roster.slice().sort((a, b) => (b.overall || 0) - (a.overall || 0));
   const ratedRoster = roster.filter((player) => Number.isFinite(Number(player.overall))).slice(0, 22);
   const calculatedOverall = ratedRoster.length ? Math.round(ratedRoster.reduce((total, player) => total + Number(player.overall), 0) / ratedRoster.length) : null;
+  const unavailableCount = roster.filter((player) => Number(player.attributes?.injuryLength || 0) > 0 || player.attributes?.isOnIr === true).length;
+  const expiringCount = roster.filter((player) => Number(player.attributes?.contractYears) === 1).length;
   const recordLine = `${record(team)} · ${team.conference} ${team.division}`;
   const command = $("#team-command");
   command.classList.remove("skeleton");
-  command.innerHTML = `<section class="team-identity" style="--team-color:${getNFLColor(team.abbr, team.color)}"><div class="team-monogram">${teamLogoImg(team.abbr, 64)}</div><div><p>${recordLine}</p><h2>${team.name}</h2><span>${team.owner || "Open team"}</span></div><div class="team-overall"><strong>${team.overall ?? calculatedOverall ?? "--"}</strong><small>TOP 22 OVR</small></div></section><div class="team-stat-grid"><article><span>Points For</span><strong>${team.pointsFor}</strong></article><article><span>Points Against</span><strong>${team.pointsAgainst}</strong></article><article><span>Point Diff</span><strong>${pointDiff > 0 ? "+" : ""}${pointDiff}</strong></article><article><span>Roster Size</span><strong>${team.roster.length}</strong></article></div><div class="team-columns"><section class="panel"><div class="panel-heading"><div><span>Next assignment</span><h2>${opponent ? `${opponentGame.homeTeamId === team.id ? "vs." : "at"} ${opponent.name}` : "Schedule clear"}</h2></div></div><p class="team-detail">${opponentGame?.scheduledAt || "A game time still needs to be confirmed."}</p><div class="team-schedule">${team.schedule.length ? team.schedule.map((game) => {
+  command.innerHTML = `<section class="team-identity" style="--team-color:${getNFLColor(team.abbr, team.color)}"><div class="team-monogram">${teamLogoImg(team.abbr, 64)}</div><div><p>${recordLine}</p><h2>${team.name}</h2><span>${team.owner || "Open team"}</span></div><div class="team-overall"><strong>${team.overall ?? calculatedOverall ?? "--"}</strong><small>TOP 22 OVR</small></div></section><div class="team-stat-grid"><article><span>Points For</span><strong>${team.pointsFor}</strong></article><article><span>Points Against</span><strong>${team.pointsAgainst}</strong></article><article><span>Point Diff</span><strong>${pointDiff > 0 ? "+" : ""}${pointDiff}</strong></article><article><span>Roster Size</span><strong>${team.roster.length}</strong></article><article><span>Unavailable</span><strong>${unavailableCount}</strong></article><article><span>Contract Year</span><strong>${expiringCount}</strong></article></div><div class="team-columns"><section class="panel"><div class="panel-heading"><div><span>Next assignment</span><h2>${opponent ? `${opponentGame.homeTeamId === team.id ? "vs." : "at"} ${opponent.name}` : "Schedule clear"}</h2></div></div><p class="team-detail">${opponentGame?.scheduledAt || "A game time still needs to be confirmed."}</p><div class="team-schedule">${team.schedule.length ? team.schedule.map((game) => {
     const isHome = game.homeTeamId === team.id;
     const opponentTeam = isHome ? game.awayTeam : game.homeTeam;
     const score = game.status === "played" ? `${game.awayScore ?? "-"}-${game.homeScore ?? "-"}` : game.scheduledAt || "Not scheduled";

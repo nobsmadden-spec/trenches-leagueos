@@ -895,6 +895,7 @@ h1, h2, strong { font-family: "Barlow Condensed", sans-serif; text-transform: up
 .ovr small { display: block; font: 700 8px Inter; color: var(--muted); letter-spacing: .15em; }
 .player-meta { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 24px; position: relative; z-index: 1; }
 .player-meta span { border: 1px solid var(--line); color: var(--muted); padding: 7px 9px; font-size: 10px; }
+.player-meta .availability-alert, .availability-alert { border-color: rgba(255, 91, 54, .55); color: #ff8b70; }
 .player-stat { display: flex; justify-content: space-between; align-items: baseline; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); color: var(--muted); font-size: 11px; position: relative; z-index: 1; }
 .player-stat strong { color: var(--ink); font: 800 22px "Barlow Condensed"; }
 
@@ -910,7 +911,7 @@ h1, h2, strong { font-family: "Barlow Condensed", sans-serif; text-transform: up
 .team-overall strong { font-size: 64px; color: var(--gold); line-height: 1; }
 .team-overall small { display: block; color: var(--muted); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; }
 .team-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
-.team-stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.team-stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
 .team-stat, .team-stat-grid article { border: 1px solid var(--line); background: rgba(8,11,16,.4); padding: 14px; }
 .team-stat span, .team-stat-grid article span { display: block; color: var(--muted); font-size: 9px; text-transform: uppercase; letter-spacing: .12em; }
 .team-stat strong, .team-stat-grid article strong { font-size: 26px; color: var(--ink); }
@@ -921,9 +922,11 @@ h1, h2, strong { font-family: "Barlow Condensed", sans-serif; text-transform: up
 .schedule-line span { color: var(--gold); font: 800 17px "Barlow Condensed"; }
 .schedule-line strong { font: 700 12px Inter; text-transform: none; }
 .schedule-line b { color: var(--muted); font-size: 10px; }
-.roster-line { display: grid; grid-template-columns: 35px 1fr auto; gap: 8px; padding: 11px 0; border-top: 1px solid var(--line); font-size: 11px; }
+.roster-line { display: grid; grid-template-columns: 35px 1fr 32px auto; gap: 8px; align-items: center; padding: 11px 0; border-top: 1px solid var(--line); font-size: 11px; }
 .roster-line span { color: var(--gold); }
 .roster-line strong { font: 700 12px Inter; text-transform: none; }
+.roster-line strong small { display: inline-block; margin-left: 7px; font: 800 8px Inter; letter-spacing: .05em; }
+.roster-line em { color: var(--muted); font-style: normal; font-size: 9px; }
 .roster-line b { color: var(--muted); }
 .roster-group { border-top: 1px solid var(--line); }
 .roster-group summary { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 0; cursor: pointer; list-style: none; }

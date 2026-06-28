@@ -112,12 +112,25 @@ test("Snallabot exports convert to the LeagueOS import contract", () => {
         playerBestOvr: 95,
         devTrait: 3,
         age: 30,
+        injuryLength: 2,
+        injuryType: "Shoulder Strain",
+        isOnIr: 0,
+        contractYears: 1,
+        contractSalary: 24500000,
         throwPowerRating: 99
       }]
     }]
   };
   const bundle = snallabotExportsToLeagueOsImportV1(sourceExport);
   assert.equal(bundle.schemaVersion, "leagueos-import/v1");
+  assert.deepEqual(bundle.players[0].attributes, {
+    injuryLength: 2,
+    injuryType: "Shoulder Strain",
+    isOnIr: false,
+    contractYears: 1,
+    contractSalary: 24500000,
+    throwPowerRating: 99
+  });
   assert.equal(bundle.week, 11);
   assert.equal(bundle.teams[0].conference, "AFC");
   assert.equal(bundle.players[0].devTrait, "X-Factor");
