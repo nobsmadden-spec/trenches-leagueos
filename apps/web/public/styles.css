@@ -638,6 +638,50 @@ h1, h2, strong { font-family: "Barlow Condensed", sans-serif; text-transform: up
   line-height: 1.5;
   margin-top: 6px;
 }
+.recognition-reports {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+}
+.recognition-reports h3 {
+  grid-column: 1/-1;
+  margin: 0;
+  font-size: 18px;
+}
+.recognition-report {
+  border: 1px solid rgba(214,169,75,.4);
+  background: linear-gradient(135deg, rgba(214,169,75,.12), rgba(8,11,16,.4));
+  padding: 16px;
+}
+.recognition-report span {
+  color: var(--gold);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: .12em;
+}
+.recognition-report h4 {
+  margin: 8px 0 3px;
+  font: 800 20px "Barlow Condensed";
+  text-transform: uppercase;
+}
+.recognition-report p,
+.recognition-report li,
+.recognition-report small {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.55;
+}
+.recognition-report p { margin: 0 0 10px; }
+.recognition-report ul {
+  margin: 0;
+  padding-left: 17px;
+}
+.recognition-report small {
+  display: block;
+  border-top: 1px solid var(--line);
+  margin-top: 12px;
+  padding-top: 10px;
+}
 .recognition-breakdown {
   border: 1px solid var(--line);
   background: rgba(8,11,16,.35);

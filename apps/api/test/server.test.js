@@ -111,6 +111,7 @@ test("static assets are served with their real content types", async () => {
   assert.match(script.body, /No Open Matchup/);
   assert.match(script.body, /function filterTradeAssets/);
   assert.match(script.body, /function updateTradeSelection/);
+  assert.match(script.body, /Generated Perk Reports/);
   assert.match(script.body, /escapeHtml/);
 
   const html = await request("/");
@@ -199,6 +200,10 @@ test("coaches can activate recognition perks", async () => {
   assert.equal(activated.status, 201);
   assert.equal(activated.json.balances.impact, 5);
   assert.ok(activated.json.activePerks.some((perk) => perk.id === "offensive-plan"));
+  const report = activated.json.activePerks.find((perk) => perk.id === "offensive-plan").report;
+  assert.equal(report.title, "Offensive Game Plan");
+  assert.match(report.subtitle, /Buffalo Bills/);
+  assert.ok(report.lines.some((line) => line.includes("Feature players") || line.includes("Open with balanced calls")));
   assert.equal(activated.json.perks.find((perk) => perk.id === "offensive-plan").status, "active");
   assert.ok(activated.json.breakdown.some((item) => item.points < 0 && item.label.includes("Spent")));
 });

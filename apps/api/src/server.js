@@ -501,6 +501,90 @@ function recognitionTeamFor(league, identity) {
   return repository.getTeam(league, membership?.teamId || league.demoUser?.teamId) || league.teams[0] || null;
 }
 
+function nextRecognitionGame(league, team) {
+  if (!team) return null;
+  return (league.games || [])
+    .filter((game) => game.status !== "played" && (game.homeTeamId === team.id || game.awayTeamId === team.id))
+    .sort((a, b) => Number(a.week || 0) - Number(b.week || 0))
+    .at(0) || null;
+}
+
+function matchupReportForPerk(league, identity, perkId) {
+  const team = recognitionTeamFor(league, identity);
+  const game = nextRecognitionGame(league, team);
+  if (!team || !game) {
+    return {
+      title: "No Open Matchup",
+      subtitle: "This perk is banked for your next scheduled game.",
+      lines: ["No open matchup is currently available for this coach.", "Run the next schedule export and this report will populate automatically."],
+      data: `Season ${league.season}, Week ${league.week}`
+    };
+  }
+  const intelligence = matchupIntelligenceFor(league, game);
+  const opponent = repository.getTeam(league, game.homeTeamId === team.id ? game.awayTeamId : game.homeTeamId);
+  const ownProfile = intelligence?.away.teamId === team.id ? intelligence.away : intelligence?.home;
+  const opponentProfile = intelligence?.away.teamId === opponent?.id ? intelligence.away : intelligence?.home;
+  const edges = intelligence?.edges || [];
+  const teamEdges = edges.filter((edge) => edge.advantage === team.id).slice(0, 3);
+  const opponentEdges = edges.filter((edge) => edge.advantage === opponent?.id).slice(0, 3);
+  const evenEdges = edges.filter((edge) => edge.advantage === "even").slice(0, 2);
+  const topOwnPersonnel = (ownProfile?.keyPersonnel || []).slice(0, 3).map((player) => `${player.position} ${player.name} (${player.overall})`);
+  const topOpponentPersonnel = (opponentProfile?.keyPersonnel || []).slice(0, 3).map((player) => `${player.position} ${player.name} (${player.overall})`);
+  const unavailable = (opponentProfile?.availability?.players || []).map((player) => `${player.position} ${player.name}${player.injuryLength ? `, ${player.injuryLength}W` : ""}`);
+  const data = `Season ${league.season}, Week ${league.week}${league.syncHealth?.lastCompletedAt ? `, imported ${league.syncHealth.lastCompletedAt}` : ""}`;
+  const matchup = `${team.name} vs ${opponent?.name || "Opponent"}`;
+  const reportByPerk = {
+    "offensive-plan": {
+      title: "Offensive Game Plan",
+      subtitle: matchup,
+      lines: [
+        teamEdges.length ? `Lean into: ${teamEdges.map((edge) => edge.label).join(", ")}.` : "Open with balanced calls until a clear edge appears.",
+        opponentEdges.length ? `Avoid letting the game become about: ${opponentEdges.map((edge) => edge.label).join(", ")}.` : "No major imported defensive edge is showing for the opponent.",
+        topOwnPersonnel.length ? `Feature players: ${topOwnPersonnel.join("; ")}.` : "Feature players will appear after roster ratings import.",
+        unavailable.length ? `Availability note: opponent is missing ${unavailable.join("; ")}.` : "No opponent availability issue is imported yet."
+      ]
+    },
+    "defensive-plan": {
+      title: "Defensive Game Plan",
+      subtitle: matchup,
+      lines: [
+        opponentEdges.length ? `Stress point: ${opponentEdges.map((edge) => `${edge.label} (${edge.evidence})`).join("; ")}.` : "The opponent does not own a strong measured edge yet.",
+        ownProfile?.strengths?.length ? `Defensive identity: ${ownProfile.strengths.slice(0, 2).map((item) => `${item.label} - ${item.evidence}`).join("; ")}.` : "Defensive identity is waiting on more imports.",
+        topOpponentPersonnel.length ? `Circle players: ${topOpponentPersonnel.join("; ")}.` : "Opponent personnel will appear after roster ratings import.",
+        intelligence?.projection?.note || "Projection is waiting on imported standings and roster data."
+      ]
+    },
+    "tendency-report": {
+      title: "Opponent Tendency Report",
+      subtitle: matchup,
+      lines: [
+        opponentProfile ? `${opponent.abbr || opponent.name} profile: ${opponentProfile.metrics.pointsPerGame} PPG, ${opponentProfile.metrics.pointsAllowedPerGame} PA/G, ${opponentProfile.recent.wins}-${opponentProfile.recent.losses}${opponentProfile.recent.ties ? `-${opponentProfile.recent.ties}` : ""} recent.` : "Opponent profile is waiting on standings.",
+        opponentProfile?.strengths?.length ? `Likely comfort zone: ${opponentProfile.strengths.slice(0, 3).map((item) => item.label).join(", ")}.` : "No clear comfort zone from imported data yet.",
+        opponentProfile?.pressurePoints?.length ? `Make them prove: ${opponentProfile.pressurePoints.slice(0, 3).map((item) => item.label).join(", ")}.` : "No clear imported pressure point yet.",
+        evenEdges.length ? `Coin-flip areas: ${evenEdges.map((edge) => edge.label).join(", ")}.` : "Most measured areas currently tilt one way."
+      ]
+    }
+  };
+  return {
+    ...(reportByPerk[perkId] || {
+      title: "Recognition Perk Report",
+      subtitle: matchup,
+      lines: ["This perk is active for the current league week.", "More generated value will be attached as this perk type is connected."]
+    }),
+    data,
+    coverage: intelligence?.coverage || null
+  };
+}
+
+function attachRecognitionReports(league, identity, activations) {
+  return activations.map((activation) => ({
+    ...activation,
+    report: ["offensive-plan", "defensive-plan", "tendency-report"].includes(activation.id)
+      ? matchupReportForPerk(league, identity, activation.id)
+      : null
+  }));
+}
+
 function baseRecognitionFor(league, identity) {
   if (league.recognition) return league.recognition;
   const ranked = powerRankings(league.teams);
@@ -569,7 +653,7 @@ function baseRecognitionFor(league, identity) {
 
 function recognitionFor(league, identity, savedActivations) {
   const base = JSON.parse(JSON.stringify(baseRecognitionFor(league, identity)));
-  const activations = savedActivations || runtimeRecognition.get(recognitionKey(league, identity)) || [];
+  const activations = attachRecognitionReports(league, identity, savedActivations || runtimeRecognition.get(recognitionKey(league, identity)) || []);
   const balances = { ...(base.balances || {}) };
   const activeIds = new Set(activations.map((activation) => activation.id));
   base.perks = (base.perks || []).map((perk) => {
