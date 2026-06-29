@@ -297,6 +297,7 @@ function recordLine(team = {}) {
 
 async function mediaDraftsFor(league, identity) {
   const openGames = league.games.filter((game) => game.status !== "played");
+  const finals = league.games.filter((game) => game.status === "played").map((game) => enrichGame(league, game));
   const featuredGame = enrichGame(league, league.games.find((game) => game.featured) || openGames[0] || league.games[0]);
   const statLeaders = repository.listStatLeaders ? await repository.listStatLeaders(league, 3) : [];
   const leaderCategory = statLeaders[0];
@@ -313,26 +314,45 @@ async function mediaDraftsFor(league, identity) {
   const leaderLines = leaderCategory?.leaders?.length
     ? leaderCategory.leaders.map((leader, index) => `${index + 1}. ${leader.name} - ${leader.value} ${leaderCategory.metric}${leader.team ? `, ${leader.team}` : ""}`).join("\n")
     : topRanked.map((team, index) => `${index + 1}. ${team.name} - ${recordLine(team)}, ${team.powerScore} power score`).join("\n");
+  const finalLines = finals.slice(0, 5).map((game) => `${game.awayTeam?.abbr || "AWY"} ${game.awayScore} at ${game.homeTeam?.abbr || "HME"} ${game.homeScore}`).join("\n");
+  const topRankedLines = topRanked.map((team, index) => `${index + 1}. ${team.name} (${recordLine(team)}) - ${team.powerScore} power`).join("\n");
+  const awayPersonnel = (matchupIntelligence?.away?.keyPersonnel || []).slice(0, 2).map((player) => `${player.position} ${player.name}`).join(", ");
+  const homePersonnel = (matchupIntelligence?.home?.keyPersonnel || []).slice(0, 2).map((player) => `${player.position} ${player.name}`).join(", ");
+  const dataLine = `Season ${league.season}, Week ${league.week}${matchupIntelligence?.lastImportAt ? `, imported ${matchupIntelligence.lastImportAt}` : ""}`;
   return [
     {
-      id: "weekly-announcement",
-      type: "Announcement",
+      id: "game-of-the-week",
+      type: "Game of the Week",
       channel: "#announcements",
-      title: `Week ${league.week} League Brief`,
-      body: `Week ${league.week} League Brief\n\n${openGames.length} open matchup${openGames.length === 1 ? "" : "s"} are on the board.\nGame of the Week: ${matchupTitle}.\n\nChecklist: schedule early, communicate in the game thread, post stream/proof, and finish before advance.`
+      title: matchupTitle,
+      visualBrief: `Create a dark stadium matchup graphic for ${matchupTitle}. Use The Trenches gold/orange accents, both team colors, bold scorebug typography, Week ${league.week}, and space for coach tags plus stream link.`,
+      notes: ["Use as the hero Discord post before opening the matchup thread.", "Attach the graphic first, then paste the copy body."],
+      body: `Game of the Week - Week ${league.week}\n\n${matchupTitle}\nKickoff: ${featuredGame?.scheduledAt || "time still needs to be confirmed"}\n\nKey personnel\n${featuredGame?.awayTeam?.abbr || "AWY"}: ${awayPersonnel || "waiting on roster ratings"}\n${featuredGame?.homeTeam?.abbr || "HME"}: ${homePersonnel || "waiting on roster ratings"}\n\nMeasured edges\n${edgeLines || "Matchup edges are waiting on standings and roster data."}\n\nProjection\n${matchupIntelligence?.projection?.note || "Not enough normalized data for a projection."}\n\nStream: post link in thread before kickoff.\nData: ${dataLine}.`
     },
     {
       id: "matchup-watch",
       type: "Matchup Watch",
       channel: "#game-threads",
       title: matchupTitle,
-      body: `${matchupTitle}\n\n${featuredGame?.awayTeam?.abbr || "AWY"} ${recordLine(featuredGame?.awayTeam)} vs ${featuredGame?.homeTeam?.abbr || "HME"} ${recordLine(featuredGame?.homeTeam)}\nKickoff: ${featuredGame?.scheduledAt || "time still needs to be confirmed"}\n\nMeasured edges\n${edgeLines || "Matchup edges are waiting on standings and roster data."}\n\nProjection: ${matchupIntelligence?.projection?.note || "Not enough normalized data for a projection."}\nData: Season ${league.season}, Week ${league.week}${matchupIntelligence?.lastImportAt ? `, imported ${matchupIntelligence.lastImportAt}` : ""}.`
+      notes: ["Post inside the matchup thread after both coaches are tagged.", "Use this as the non-graphic thread primer."],
+      body: `${matchupTitle}\n\n${featuredGame?.awayTeam?.abbr || "AWY"} ${recordLine(featuredGame?.awayTeam)} vs ${featuredGame?.homeTeam?.abbr || "HME"} ${recordLine(featuredGame?.homeTeam)}\nKickoff: ${featuredGame?.scheduledAt || "time still needs to be confirmed"}\n\nMeasured edges\n${edgeLines || "Matchup edges are waiting on standings and roster data."}\n\nProjection: ${matchupIntelligence?.projection?.note || "Not enough normalized data for a projection."}\nData: ${dataLine}.`
+    },
+    {
+      id: "weekly-recap",
+      type: "Weekly Recap",
+      channel: "#announcements",
+      title: `Week ${league.week} Recap Draft`,
+      visualBrief: `Create a weekly recap scoreboard collage for The Trenches. Include top finals, power ranking movement, stat leader spotlight, gritty dark background, gold/orange accents, and headline: Week ${league.week} Recap.`,
+      notes: ["Use after the latest game and stat exports land.", "Keep commentary factual; add commissioner color after review."],
+      body: `Week ${league.week} Recap\n\nFinals on file\n${finalLines || "Final scores are waiting on completed-game imports."}\n\nPower picture\n${topRankedLines || "Power rankings are waiting on standings."}\n\nStat spotlight\n${leaderCategory ? `${leaderCategory.title}: ${leaderLines}` : leaderLines}\n\nNext hook\nGame of the Week: ${matchupTitle}.\nData: ${dataLine}.`
     },
     {
       id: "stat-leader-spotlight",
       type: "Stat Leaders",
       channel: "#stat-leaders",
       title: leaderCategory ? `${leaderCategory.title} Leaders` : "Power Ranking Leaders",
+      visualBrief: `Create a stat-leaders graphic for ${leaderCategory ? leaderCategory.title : "power rankings"} with top-five list styling, team-color accents, and The Trenches branding.`,
+      notes: ["Best posted right after Snallabot weekly stats finish importing."],
       body: `${leaderCategory ? `${leaderCategory.title} Leaders` : "Power Ranking Leaders"} - Week ${league.week}\n\n${leaderLines}\n\nUse this as the weekly spotlight post after the latest Snallabot export lands.`
     },
     {
@@ -340,7 +360,16 @@ async function mediaDraftsFor(league, identity) {
       type: "Recognition",
       channel: "#announcements",
       title: "Recognition Update",
+      notes: ["Pair this with the perk shop and weekly challenge push.", "Do not mention private perk report contents in public channels."],
       body: `Recognition Update - Week ${league.week}\n\n${(recognition?.leaders || []).slice(0, 3).map((leader) => `${leader.lane}: ${leader.name} (${leader.points})`).join("\n") || "Recognition leaders will appear after coach events are tracked."}\n\nWeekly challenge: ${recognition?.challenge?.title || "Clean Week Checklist"} - ${recognition?.challenge?.detail || "Schedule, communicate, stream, and finish on time."}`
+    },
+    {
+      id: "reporter-storylines",
+      type: "Reporter Post",
+      channel: "#media",
+      title: "Reporter Storyline Seeds",
+      notes: ["These are prompts for commissioner-approved flavor posts.", "Label rumors as commentary unless confirmed by league data."],
+      body: `Reporter Storyline Seeds - Week ${league.week}\n\n1. ${matchupTitle}: turn the measured edges into a pregame pressure story.\n2. Power race: ${topRanked.map((team) => team.name).join(", ") || "top teams pending"} are setting the pace.\n3. Trade desk: watch for contenders using the Trade Center before advance.\n4. Recognition economy: spotlight coaches spending Impact on game plans without exposing private reports.\n\nGround every post in imported standings, rosters, finals, or commissioner-approved quotes.`
     }
   ];
 }

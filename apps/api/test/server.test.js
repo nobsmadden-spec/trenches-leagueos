@@ -77,6 +77,11 @@ test("health and league summary APIs respond", async () => {
   assert.equal(mediaDrafts.status, 200);
   assert.ok(mediaDrafts.json.some((draft) => draft.channel === "#announcements" && draft.body.includes("Week 11")));
   assert.ok(mediaDrafts.json.some((draft) => draft.id === "matchup-watch" && draft.body.includes("Measured edges")));
+  const gotw = mediaDrafts.json.find((draft) => draft.id === "game-of-the-week");
+  assert.ok(gotw.visualBrief.includes("The Trenches"));
+  assert.ok(gotw.body.includes("Measured edges"));
+  assert.ok(mediaDrafts.json.some((draft) => draft.id === "weekly-recap" && draft.visualBrief.includes("recap")));
+  assert.ok(mediaDrafts.json.some((draft) => draft.id === "reporter-storylines"));
   const me = await get("/api/me");
   assert.equal(me.json.authenticated, true);
 });
@@ -94,6 +99,8 @@ test("static assets are served with their real content types", async () => {
   assert.match(script.body, /function setView/);
   assert.match(script.body, /Announcement cards are waiting on the latest API deploy/);
   assert.match(script.body, /Published media posts will appear here/);
+  assert.match(script.body, /media-visual-brief/);
+  assert.match(script.body, /VISUAL BRIEF/);
   assert.match(script.body, /Promise\.allSettled/);
   assert.match(script.body, /Recent exports could not load/);
   assert.match(script.body, /Imported teams could not load/);

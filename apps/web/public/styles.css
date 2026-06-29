@@ -1165,6 +1165,31 @@ h1, h2, strong { font-family: "Barlow Condensed", sans-serif; text-transform: up
 }
 .media-draft-heading strong { color: var(--gold); font: 800 9px Inter, sans-serif; }
 .media-draft h2 { font-size: 22px; margin: 12px 0; }
+.media-visual-brief {
+  border: 1px solid rgba(214,169,75,.35);
+  background: rgba(214,169,75,.08);
+  padding: 12px;
+  margin: 0 0 10px;
+}
+.media-visual-brief strong {
+  color: var(--gold);
+  font: 800 10px Inter, sans-serif;
+  text-transform: uppercase;
+  letter-spacing: .12em;
+}
+.media-visual-brief p {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.55;
+  margin: 7px 0 0;
+}
+.media-draft-notes {
+  margin: 0 0 10px;
+  padding-left: 18px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.55;
+}
 .media-draft pre {
   white-space: pre-wrap;
   color: var(--muted);

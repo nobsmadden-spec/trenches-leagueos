@@ -66,9 +66,9 @@ Do not interrupt the active import, roster, and trade workflow for this phase. B
 
 ### Generated weekly content
 
-- [ ] Game of the Week package: branded AI-generated visual, NFL-style matchup preview, coach tags, key players, statistical edges, prediction, stream link, and Discord-ready copy
-- [ ] Weekly recap package: scores, turning points, standout performances, awards, standings movement, playoff impact, and next-week hooks
-- [ ] Reporter posts: distinct reporter voices, rumors clearly labeled as commentary, transaction reactions, coach quotes, and evolving league storylines
+- [ ] Game of the Week package: branded AI-generated visual, NFL-style matchup preview, coach tags, key players, statistical edges, prediction, stream link, and Discord-ready copy (structured copy, visual brief, and production notes are live; AI image generation and publishing remain pending)
+- [ ] Weekly recap package: scores, turning points, standout performances, awards, standings movement, playoff impact, and next-week hooks (structured recap copy and visual brief are live; automated postgame narrative and publishing remain pending)
+- [ ] Reporter posts: distinct reporter voices, rumors clearly labeled as commentary, transaction reactions, coach quotes, and evolving league storylines (storyline seed drafts are live; named reporter voice system remains pending)
 - [ ] Props package: virtual-currency player/team props, transparent source statistics, settlement rules, and responsible non-cash framing
 - [ ] Season statistics package: leaderboards, pace projections, records watch, historical comparisons, and award races
 - [ ] Generate web cards and Discord posts from the same structured content record so facts remain consistent across surfaces

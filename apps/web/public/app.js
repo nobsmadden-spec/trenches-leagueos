@@ -653,7 +653,11 @@ async function loadMedia() {
   try {
     const drafts = await api("/media-drafts");
     mediaDraftCache = drafts;
-    draftTarget.innerHTML = drafts.length ? drafts.map((draft) => `<article class="media-draft"><div class="media-draft-heading"><span>${escapeHtml(draft.type)}</span><strong>${escapeHtml(draft.channel)}</strong></div><h2>${escapeHtml(draft.title)}</h2><pre>${escapeHtml(draft.body)}</pre><button class="text-button" type="button" data-media-copy="${escapeHtml(draft.id)}">Copy Draft</button></article>`).join("") : `<p class="muted">Announcement drafts will appear after league data syncs.</p>`;
+    draftTarget.innerHTML = drafts.length ? drafts.map((draft) => {
+      const visual = draft.visualBrief ? `<div class="media-visual-brief"><strong>Visual brief</strong><p>${escapeHtml(draft.visualBrief)}</p></div>` : "";
+      const notes = draft.notes?.length ? `<ul class="media-draft-notes">${draft.notes.map((note) => `<li>${escapeHtml(note)}</li>`).join("")}</ul>` : "";
+      return `<article class="media-draft"><div class="media-draft-heading"><span>${escapeHtml(draft.type)}</span><strong>${escapeHtml(draft.channel)}</strong></div><h2>${escapeHtml(draft.title)}</h2>${visual}${notes}<pre>${escapeHtml(draft.body)}</pre><button class="text-button" type="button" data-media-copy="${escapeHtml(draft.id)}">Copy Package</button></article>`;
+    }).join("") : `<p class="muted">Announcement drafts will appear after league data syncs.</p>`;
   } catch (error) {
     mediaDraftCache = [];
     draftTarget.innerHTML = `<p class="muted">Announcement cards are waiting on the latest API deploy.</p>`;
@@ -670,8 +674,13 @@ async function copyMediaDraft(draftId) {
   const draft = mediaDraftCache.find((item) => item.id === draftId);
   if (!draft) return;
   const button = document.querySelector(`[data-media-copy="${draftId}"]`);
+  const packageText = [
+    draft.visualBrief ? `VISUAL BRIEF\n${draft.visualBrief}` : "",
+    draft.notes?.length ? `NOTES\n${draft.notes.map((note) => `- ${note}`).join("\n")}` : "",
+    `COPY\n${draft.body}`
+  ].filter(Boolean).join("\n\n");
   try {
-    await navigator.clipboard.writeText(draft.body);
+    await navigator.clipboard.writeText(packageText);
     if (button) button.textContent = "Copied";
   } catch {
     if (button) button.textContent = "Copy failed";
