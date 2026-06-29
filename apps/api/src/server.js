@@ -261,6 +261,36 @@ function matchupIntelligenceFor(league, game) {
   };
 }
 
+function dataCoverageFor(league) {
+  const players = league.players || [];
+  const teams = league.teams || [];
+  const games = league.games || [];
+  const hasAttribute = (player, keys) => keys.some((key) => player.attributes?.[key] !== undefined && player.attributes?.[key] !== null && player.attributes?.[key] !== "");
+  const ratedPlayers = players.filter((player) => Number.isFinite(Number(player.overall)));
+  const availabilityPlayers = players.filter((player) => hasAttribute(player, ["injuryLength", "injuryType", "isOnIr"]));
+  const contractPlayers = players.filter((player) => hasAttribute(player, ["contractYears", "contractSalary", "contractBonus"]));
+  const physicalPlayers = players.filter((player) => hasAttribute(player, ["height", "weight", "speedRating", "strengthRating", "awarenessRating"]));
+  const populatedTeamIds = new Set(players.map((player) => player.teamId).filter(Boolean));
+  const percentage = (count) => players.length ? Math.round((count / players.length) * 100) : 0;
+  return {
+    generatedAt: new Date().toISOString(),
+    totals: { teams: teams.length, populatedTeams: populatedTeamIds.size, players: players.length, games: games.length, finals: games.filter((game) => game.status === "played").length },
+    fields: [
+      { id: "ratings", label: "Overall ratings", count: ratedPlayers.length, percentage: percentage(ratedPlayers.length) },
+      { id: "availability", label: "Injury / IR", count: availabilityPlayers.length, percentage: percentage(availabilityPlayers.length) },
+      { id: "contracts", label: "Contracts", count: contractPlayers.length, percentage: percentage(contractPlayers.length) },
+      { id: "physical", label: "Physical ratings", count: physicalPlayers.length, percentage: percentage(physicalPlayers.length) }
+    ],
+    readiness: {
+      roster: players.length > 0 && populatedTeamIds.size > 1,
+      matchupRatings: ratedPlayers.length > 0,
+      matchupAvailability: availabilityPlayers.length > 0,
+      recentForm: games.some((game) => game.status === "played"),
+      coachActivity: false
+    }
+  };
+}
+
 function recordLine(team = {}) {
   return Number.isFinite(Number(team.wins)) && Number.isFinite(Number(team.losses)) ? `${team.wins}-${team.losses}${team.ties ? `-${team.ties}` : ""}` : "--";
 }
@@ -776,6 +806,10 @@ async function leagueRoute(request, response, url, identity) {
     }
   }
   if (resource === "sync-health") return sendJson(response, 200, league.syncHealth) ?? true;
+  if (resource === "data-coverage") {
+    if (!hasLeagueRole(identity, league.id, "commissioner")) return sendJson(response, identity ? 403 : 401, { error: "Commissioner role required" }) ?? true;
+    return sendJson(response, 200, dataCoverageFor(league)) ?? true;
+  }
   if (resource === "strike-board") {
     if (!hasLeagueRole(identity, league.id, "commissioner")) return sendJson(response, identity ? 403 : 401, { error: "Commissioner role required" }) ?? true;
     return sendJson(response, 200, buildStrikeBoard(league)) ?? true;
@@ -856,7 +890,7 @@ async function staticFile(response, pathname) {
   }
 }
 
-export async function requestHandler(request, response) {
+async function routeRequest(request, response) {
   const url = new URL(request.url, `http://${request.headers.host || "localhost"}`);
   if (await authRoute(request, response, url)) return;
   if (!["GET", "PATCH", "POST"].includes(request.method)) return sendJson(response, 405, { error: "Method not allowed" });
@@ -879,6 +913,18 @@ export async function requestHandler(request, response) {
   if (await leagueRoute(request, response, url, identity)) return;
   if (url.pathname.startsWith("/api/")) return sendJson(response, 404, { error: "Route not found" });
   await staticFile(response, url.pathname);
+}
+
+export async function requestHandler(request, response) {
+  try {
+    await routeRequest(request, response);
+  } catch (error) {
+    console.error(`Request failed: ${error.message}`);
+    if (!response.headersSent) {
+      return sendJson(response, 503, { error: "Service temporarily unavailable", detail: "The league database could not complete this request." });
+    }
+    response.end();
+  }
 }
 
 export const server = createServer(requestHandler);

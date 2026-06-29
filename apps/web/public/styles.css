@@ -1148,8 +1148,10 @@ h1, h2, strong { font-family: "Barlow Condensed", sans-serif; text-transform: up
 
 /* ── League Office ── */
 .office-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+.office-grid > * { min-width: 0; }
 .office-wide { grid-column: span 2; }
 .import-box { display: grid; gap: 14px; }
+.import-box input, .import-box textarea { min-width: 0; }
 .import-box label { display: grid; gap: 6px; font-size: 10px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); }
 .import-box input[type="text"], .import-box input[type="url"] {
   background: rgba(8,11,16,.6);
@@ -1209,6 +1211,19 @@ h1, h2, strong { font-family: "Barlow Condensed", sans-serif; text-transform: up
 .member-header { color: var(--muted); text-transform: uppercase; letter-spacing: .1em; font-size: 8px; }
 .receiver-heading { margin: 0 0 10px; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .12em; }
 .receiver-attempt { border-color: rgba(236,91,42,.35); }
+.data-coverage { display: grid; gap: 16px; }
+.coverage-summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.coverage-summary article { border: 1px solid var(--line); background: rgba(8,11,16,.4); padding: 14px; }
+.coverage-summary span, .coverage-fields span { display: block; color: var(--muted); font-size: 9px; text-transform: uppercase; letter-spacing: .1em; }
+.coverage-summary strong { font-size: 24px; }
+.coverage-fields { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.coverage-fields article { position: relative; overflow: hidden; display: grid; grid-template-columns: 1fr auto; gap: 12px; border: 1px solid var(--line); padding: 13px; }
+.coverage-fields article > i { position: absolute; left: 0; bottom: 0; width: var(--coverage); height: 3px; background: var(--gold); }
+.coverage-fields b { color: var(--gold); }
+.coverage-readiness { display: flex; flex-wrap: wrap; gap: 8px; }
+.coverage-readiness span { border: 1px solid var(--line); padding: 7px 9px; font-size: 9px; text-transform: uppercase; letter-spacing: .08em; }
+.coverage-readiness .ready { border-color: rgba(65, 189, 122, .5); color: #78d9a5; }
+.coverage-readiness .waiting { border-color: rgba(255, 91, 54, .45); color: #ff8b70; }
 .strike-board { display: grid; gap: 16px; }
 .strike-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
 .strike-summary article {
@@ -1430,6 +1445,7 @@ footer {
   .thread-team-grid { grid-template-columns: 1fr; }
   .thread-team { grid-template-columns: 1fr; }
   .strike-summary, .strike-columns { grid-template-columns: 1fr; }
+  .coverage-summary, .coverage-fields { grid-template-columns: 1fr; }
   .recognition-panel { margin-top: -26px; }
   .recognition-breakdown-row { grid-template-columns: 1fr auto; }
   .recognition-breakdown-row span { grid-column: 1/-1; }

@@ -684,11 +684,12 @@ async function loadOffice() {
     api("/teams"),
     api("/import-runs"),
     api("/receiver-attempts"),
-    api("/strike-board")
+    api("/strike-board"),
+    api("/data-coverage")
   ]);
   const valueAt = (index, fallback) => results[index].status === "fulfilled" && results[index].value !== undefined ? results[index].value : fallback;
-  const [office, members, teams, imports, receiverAttempts, strikeBoard] = [
-    valueAt(0, null), valueAt(1, []), valueAt(2, []), valueAt(3, []), valueAt(4, []), valueAt(5, null)
+  const [office, members, teams, imports, receiverAttempts, strikeBoard, dataCoverage] = [
+    valueAt(0, null), valueAt(1, []), valueAt(2, []), valueAt(3, []), valueAt(4, []), valueAt(5, null), valueAt(6, null)
   ];
 
   $("#office-actions").innerHTML = office ? actionRows(office.actions || []) : `<p class="empty">League Office actions could not load.</p>`;
@@ -696,6 +697,9 @@ async function loadOffice() {
   else $("#office-sync").innerHTML = `<p class="empty">Sync health could not load.</p>`;
   if (strikeBoard) renderStrikeBoard(strikeBoard);
   else $("#strike-board").innerHTML = `<p class="empty">Strike board could not load.</p>`;
+  $("#data-coverage").innerHTML = dataCoverage
+    ? `<div class="coverage-summary"><article><span>Teams With Rosters</span><strong>${dataCoverage.totals.populatedTeams}/${dataCoverage.totals.teams}</strong></article><article><span>Imported Players</span><strong>${dataCoverage.totals.players}</strong></article><article><span>Recorded Finals</span><strong>${dataCoverage.totals.finals}</strong></article></div><div class="coverage-fields">${dataCoverage.fields.map((field) => `<article><div><strong>${escapeHtml(field.label)}</strong><span>${field.count}/${dataCoverage.totals.players} players</span></div><b>${field.percentage}%</b><i style="--coverage:${field.percentage}%"></i></article>`).join("")}</div><div class="coverage-readiness">${Object.entries(dataCoverage.readiness).map(([key, ready]) => `<span class="${ready ? "ready" : "waiting"}">${ready ? "Ready" : "Waiting"} · ${escapeHtml(key.replaceAll(/([A-Z])/g, " $1"))}</span>`).join("")}</div>`
+    : `<p class="empty">Data coverage could not load.</p>`;
 
   $("#receiver-attempts").innerHTML = results[4].status === "rejected"
     ? `<p class="empty">Recent receiver calls could not load.</p>`

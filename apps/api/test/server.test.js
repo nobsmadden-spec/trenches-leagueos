@@ -224,6 +224,14 @@ test("commissioners can record import runs and update sync health", async () => 
   assert.equal(sync.json.datasets[1].status, "failed");
 });
 
+test("commissioners can inspect normalized analytics data coverage", async () => {
+  const coverage = await get("/api/leagues/the-trenches/data-coverage");
+  assert.equal(coverage.status, 200);
+  assert.ok(coverage.json.totals.teams > 0);
+  assert.ok(Array.isArray(coverage.json.fields));
+  assert.equal(typeof coverage.json.readiness.matchupAvailability, "boolean");
+});
+
 test("commissioners can record a leagueos import bundle", async () => {
   const recorded = await request("/api/leagues/the-trenches/import-runs", {
     method: "POST",
