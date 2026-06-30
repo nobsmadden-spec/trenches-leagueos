@@ -45,6 +45,7 @@ let tradeCache = [];
 let tradeAssets = [];
 let tradeFilter = "all";
 let mediaDraftCache = [];
+let mediaPostCache = [];
 let teamCache = [];
 let matchupCache = [];
 let matchupFilter = "all";
@@ -145,6 +146,16 @@ document.addEventListener("click", (event) => {
   const mediaCopy = event.target.closest("[data-media-copy]");
   if (mediaCopy) {
     copyMediaDraft(mediaCopy.dataset.mediaCopy);
+    return;
+  }
+  const mediaStage = event.target.closest("[data-media-stage]");
+  if (mediaStage) {
+    stageMediaDraft(mediaStage.dataset.mediaStage);
+    return;
+  }
+  const mediaAction = event.target.closest("[data-media-action]");
+  if (mediaAction) {
+    updateMediaPost(mediaAction.dataset.mediaId, mediaAction.dataset.mediaAction);
     return;
   }
   const threadOutcome = event.target.closest("[data-thread-outcome]");
@@ -656,7 +667,8 @@ async function loadMedia() {
     draftTarget.innerHTML = drafts.length ? drafts.map((draft) => {
       const visual = draft.visualBrief ? `<div class="media-visual-brief"><strong>Visual brief</strong><p>${escapeHtml(draft.visualBrief)}</p></div>` : "";
       const notes = draft.notes?.length ? `<ul class="media-draft-notes">${draft.notes.map((note) => `<li>${escapeHtml(note)}</li>`).join("")}</ul>` : "";
-      return `<article class="media-draft"><div class="media-draft-heading"><span>${escapeHtml(draft.type)}</span><strong>${escapeHtml(draft.channel)}</strong></div><h2>${escapeHtml(draft.title)}</h2>${visual}${notes}<pre>${escapeHtml(draft.body)}</pre><button class="text-button" type="button" data-media-copy="${escapeHtml(draft.id)}">Copy Package</button></article>`;
+      const stageAction = currentRole === "commissioner" ? `<button type="button" data-media-stage="${escapeHtml(draft.id)}">Stage for Review</button>` : "";
+      return `<article class="media-draft"><div class="media-draft-heading"><span>${escapeHtml(draft.type)}</span><strong>${escapeHtml(draft.channel)}</strong></div><h2>${escapeHtml(draft.title)}</h2>${visual}${notes}<pre>${escapeHtml(draft.body)}</pre><div class="media-draft-actions"><button class="text-button" type="button" data-media-copy="${escapeHtml(draft.id)}">Copy Package</button>${stageAction}</div></article>`;
     }).join("") : `<p class="muted">Announcement drafts will appear after league data syncs.</p>`;
   } catch (error) {
     mediaDraftCache = [];
@@ -664,9 +676,50 @@ async function loadMedia() {
   }
   try {
     const posts = await api("/media");
-    postTarget.innerHTML = posts.length ? posts.map((post) => `<article class="media-card"><div class="media-type">${post.type}</div><h2>${post.title}</h2><p>${post.summary}</p><div class="media-footer"><span class="content-status ${post.status}">${post.status}</span><button>${post.status === "draft" ? "Continue Draft" : "Read Story"}</button></div></article>`).join("") : `<p class="empty">Published media posts will appear here after the first story is drafted.</p>`;
+    mediaPostCache = posts;
+    postTarget.innerHTML = posts.length ? posts.map(renderMediaPost).join("") : `<p class="empty">Published media posts will appear here after the first story is drafted.</p>`;
   } catch (error) {
+    mediaPostCache = [];
     postTarget.innerHTML = `<p class="empty">Media posts could not load: ${error.message}</p>`;
+  }
+}
+
+function renderMediaPost(post) {
+  const actions = currentRole === "commissioner" ? mediaPostActions(post) : "";
+  const visual = post.visualBrief ? `<div class="media-visual-brief"><strong>Visual brief</strong><p>${escapeHtml(post.visualBrief)}</p></div>` : "";
+  const byline = [post.channel, post.createdBy ? `queued by ${post.createdBy}` : null].filter(Boolean).join(" • ");
+  return `<article class="media-card"><div class="media-type">${escapeHtml(post.type || "Media")} ${byline ? `<span>${escapeHtml(byline)}</span>` : ""}</div><h2>${escapeHtml(post.title)}</h2><p>${escapeHtml(post.summary || "Ready for commissioner review.")}</p>${visual}<div class="media-footer"><span class="content-status ${escapeHtml(post.status || "draft")}">${escapeHtml(post.status || "draft")}</span>${actions}</div></article>`;
+}
+
+function mediaPostActions(post) {
+  const id = escapeHtml(post.id);
+  if (post.status === "pending_review") return `<div class="media-card-actions"><button type="button" data-media-id="${id}" data-media-action="approve">Approve</button><button class="text-button" type="button" data-media-id="${id}" data-media-action="needs_work">Needs Work</button></div>`;
+  if (post.status === "approved") return `<div class="media-card-actions"><button type="button" data-media-id="${id}" data-media-action="publish">Mark Published</button><button class="text-button" type="button" data-media-id="${id}" data-media-action="reject">Reject</button></div>`;
+  if (post.status === "draft") return `<div class="media-card-actions"><button type="button" data-media-id="${id}" data-media-action="approve">Approve</button><button class="text-button" type="button" data-media-copy="${escapeHtml(post.draftId || "")}">Copy Source</button></div>`;
+  return `<button class="text-button" type="button" data-media-copy="${escapeHtml(post.draftId || "")}">Copy Source</button>`;
+}
+
+async function stageMediaDraft(draftId) {
+  const button = document.querySelector(`[data-media-stage="${draftId}"]`);
+  if (button) button.textContent = "Staging...";
+  try {
+    await apiMutation(`/media?role=${currentRole}`, "POST", { draftId });
+    await loadMedia();
+  } catch (error) {
+    if (button) button.textContent = error.message;
+  }
+}
+
+async function updateMediaPost(mediaId, action) {
+  const post = mediaPostCache.find((item) => item.id === mediaId);
+  const button = document.querySelector(`[data-media-id="${mediaId}"][data-media-action="${action}"]`);
+  if (button) button.textContent = "Saving...";
+  try {
+    await apiMutation(`/media/${encodeURIComponent(mediaId)}?role=${currentRole}`, "PATCH", { action });
+    await loadMedia();
+  } catch (error) {
+    if (button) button.textContent = error.message;
+    if (post) post.status = post.status || "draft";
   }
 }
 

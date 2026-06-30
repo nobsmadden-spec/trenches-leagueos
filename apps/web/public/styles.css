@@ -1199,16 +1199,44 @@ h1, h2, strong { font-family: "Barlow Condensed", sans-serif; text-transform: up
   padding: 12px;
   min-height: 170px;
 }
+.media-draft-actions,
+.media-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+.media-draft-actions button,
+.media-card-actions button {
+  border: 1px solid rgba(214,169,75,.35);
+  background: rgba(214,169,75,.12);
+  color: var(--gold);
+  padding: 9px 11px;
+  cursor: pointer;
+  font: 800 10px Inter, sans-serif;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+.media-draft-actions .text-button,
+.media-card-actions .text-button {
+  border-color: var(--line);
+  background: transparent;
+}
 .media-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 18px; }
 .media-card { border: 1px solid var(--line); background: var(--panel); overflow: hidden; padding: 22px; display: flex; flex-direction: column; min-height: 250px; }
 .media-card:hover { border-color: rgba(214,169,75,.25); }
 .media-type { color: var(--gold); font-size: 9px; text-transform: uppercase; letter-spacing: .16em; }
+.media-type span { color: var(--muted); margin-left: 8px; }
 .media-card h2 { font-size: 28px; margin: 13px 0; }
 .media-card p { color: var(--muted); line-height: 1.7; font-size: 12px; }
-.media-footer { display: flex; justify-content: space-between; align-items: center; margin-top: auto; }
+.media-footer { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: auto; }
 .media-footer button { border: 0; background: none; color: var(--gold); cursor: pointer; font-size: 10px; }
 .content-status { font-size: 8px; text-transform: uppercase; letter-spacing: .1em; border: 1px solid var(--line); padding: 6px; }
+.content-status.pending_review { color: var(--gold); border-color: rgba(214,169,75,.45); }
+.content-status.approved { color: #60a5fa; border-color: rgba(96,165,250,.4); }
 .content-status.published { color: var(--green); }
+.content-status.rejected { color: #f87171; border-color: rgba(248,113,113,.4); }
+.content-status.draft { color: var(--muted); }
 .media-thumb { width: 100%; aspect-ratio: 16/9; background: var(--panel-2); object-fit: cover; }
 .media-body { padding: 18px; }
 .media-tag { color: var(--gold); font-size: 9px; text-transform: uppercase; letter-spacing: .18em; font-weight: 800; }

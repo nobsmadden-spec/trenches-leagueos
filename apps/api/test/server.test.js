@@ -82,6 +82,24 @@ test("health and league summary APIs respond", async () => {
   assert.ok(gotw.body.includes("Measured edges"));
   assert.ok(mediaDrafts.json.some((draft) => draft.id === "weekly-recap" && draft.visualBrief.includes("recap")));
   assert.ok(mediaDrafts.json.some((draft) => draft.id === "reporter-storylines"));
+  const stagedMedia = await request("/api/leagues/the-trenches/media?role=commissioner", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ draftId: "game-of-the-week" })
+  });
+  assert.equal(stagedMedia.status, 201);
+  assert.equal(stagedMedia.json.status, "pending_review");
+  assert.equal(stagedMedia.json.channel, "#announcements");
+  assert.ok(stagedMedia.json.visualBrief.includes("The Trenches"));
+  const approvedMedia = await request(`/api/leagues/the-trenches/media/${stagedMedia.json.id}?role=commissioner`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ action: "approve" })
+  });
+  assert.equal(approvedMedia.status, 200);
+  assert.equal(approvedMedia.json.status, "approved");
+  const mediaPosts = await get("/api/leagues/the-trenches/media");
+  assert.ok(mediaPosts.json.some((post) => post.id === stagedMedia.json.id && post.status === "approved"));
   const me = await get("/api/me");
   assert.equal(me.json.authenticated, true);
 });
@@ -101,6 +119,9 @@ test("static assets are served with their real content types", async () => {
   assert.match(script.body, /Published media posts will appear here/);
   assert.match(script.body, /media-visual-brief/);
   assert.match(script.body, /VISUAL BRIEF/);
+  assert.match(script.body, /Stage for Review/);
+  assert.match(script.body, /data-media-action/);
+  assert.match(script.body, /async function stageMediaDraft/);
   assert.match(script.body, /Promise\.allSettled/);
   assert.match(script.body, /Recent exports could not load/);
   assert.match(script.body, /Imported teams could not load/);

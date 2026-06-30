@@ -28,6 +28,7 @@ const maxExportBytes = Number(process.env.MAX_EXPORT_URL_BYTES || 5_000_000);
 const receiverAttempts = [];
 const runtimeTrades = new Map();
 const runtimeRecognition = new Map();
+const runtimeMedia = new Map();
 
 function sendJson(response, status, body) {
   response.writeHead(status, { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" });
@@ -409,6 +410,63 @@ function tradesForLeague(league) {
   return [...(runtimeTrades.get(league.id) || []), ...(league.trades || [])];
 }
 
+function mediaForLeague(league) {
+  return [...(runtimeMedia.get(league.id) || []), ...(league.media || [])];
+}
+
+function mediaSummary(draft) {
+  return String(draft.body || "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .slice(0, 2)
+    .join(" ");
+}
+
+function identityLabel(identity) {
+  return identity?.displayName || identity?.username || identity?.id || null;
+}
+
+function stageMediaDraft(league, draft, identity) {
+  const now = new Date().toISOString();
+  const post = {
+    id: `media_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    draftId: draft.id,
+    type: draft.type,
+    channel: draft.channel,
+    title: draft.title,
+    summary: mediaSummary(draft),
+    body: draft.body,
+    visualBrief: draft.visualBrief || null,
+    notes: draft.notes || [],
+    status: "pending_review",
+    createdAt: now,
+    updatedAt: now,
+    createdBy: identityLabel(identity),
+    updatedBy: identityLabel(identity),
+    approvedAt: null,
+    publishedAt: null,
+    rejectedAt: null
+  };
+  const posts = runtimeMedia.get(league.id) || [];
+  runtimeMedia.set(league.id, [post, ...posts]);
+  return post;
+}
+
+function updateMediaStatus(league, mediaId, nextStatus, identity) {
+  const posts = runtimeMedia.get(league.id) || [];
+  const post = posts.find((item) => item.id === mediaId);
+  if (!post) return null;
+  const now = new Date().toISOString();
+  post.status = nextStatus;
+  post.updatedAt = now;
+  post.updatedBy = identityLabel(identity);
+  if (nextStatus === "approved") post.approvedAt = now;
+  if (nextStatus === "published") post.publishedAt = now;
+  if (nextStatus === "rejected") post.rejectedAt = now;
+  return post;
+}
+
 function storeRuntimeTrade(league, trade) {
   const trades = runtimeTrades.get(league.id) || [];
   runtimeTrades.set(league.id, [trade, ...trades]);
@@ -738,7 +796,7 @@ async function leagueRoute(request, response, url, identity) {
   const league = await repository.getLeague(match[1]);
   if (!league) return sendJson(response, 404, { error: "League not found" }) ?? true;
   const resource = match[2];
-  if (request.method !== "GET" && !(request.method === "PATCH" && (resource?.startsWith("members/") || resource?.startsWith("trades/") || resource?.startsWith("games/"))) && !(request.method === "POST" && (resource === "recognition/perks" || ["import-runs", "import-runs/from-url", "bootstrap-owner", "trades"].includes(resource)))) {
+  if (request.method !== "GET" && !(request.method === "PATCH" && (resource?.startsWith("members/") || resource?.startsWith("trades/") || resource?.startsWith("games/") || resource?.startsWith("media/"))) && !(request.method === "POST" && (resource === "recognition/perks" || ["import-runs", "import-runs/from-url", "bootstrap-owner", "trades", "media"].includes(resource)))) {
     return sendJson(response, 405, { error: "Method not allowed" }) ?? true;
   }
 
@@ -957,7 +1015,26 @@ async function leagueRoute(request, response, url, identity) {
     return sendJson(response, 200, trades.map((trade) => enrichTrade(league, trade))) ?? true;
   }
   if (resource === "trade-assets") return sendJson(response, 200, tradeAssetBoard(league)) ?? true;
-  if (resource === "media") return sendJson(response, 200, league.media || []) ?? true;
+  if (resource === "media" && request.method === "POST") {
+    if (!hasLeagueRole(identity, league.id, "commissioner")) return sendJson(response, identity ? 403 : 401, { error: "Commissioner role required" }) ?? true;
+    const body = await readJson(request);
+    const drafts = await mediaDraftsFor(league, identity);
+    const draft = drafts.find((item) => item.id === body.draftId);
+    if (!draft) return sendJson(response, 404, { error: "Media draft not found" }) ?? true;
+    return sendJson(response, 201, stageMediaDraft(league, draft, identity)) ?? true;
+  }
+  if (resource?.startsWith("media/") && request.method === "PATCH") {
+    if (!hasLeagueRole(identity, league.id, "commissioner")) return sendJson(response, identity ? 403 : 401, { error: "Commissioner role required" }) ?? true;
+    const mediaId = resource.slice("media/".length);
+    const body = await readJson(request);
+    const statusByAction = { approve: "approved", publish: "published", reject: "rejected", needs_work: "draft" };
+    const nextStatus = statusByAction[body.action];
+    if (!nextStatus) return sendJson(response, 400, { error: "Unsupported media action" }) ?? true;
+    const post = updateMediaStatus(league, mediaId, nextStatus, identity);
+    if (!post) return sendJson(response, 404, { error: "Media post not found" }) ?? true;
+    return sendJson(response, 200, post) ?? true;
+  }
+  if (resource === "media") return sendJson(response, 200, mediaForLeague(league)) ?? true;
   if (resource === "media-drafts") return sendJson(response, 200, await mediaDraftsFor(league, identity)) ?? true;
   if (resource === "standings") return sendJson(response, 200, standingsByDivision(league.teams)) ?? true;
   if (resource === "stat-leaders") {
