@@ -454,8 +454,9 @@ function stageMediaDraft(league, draft, identity) {
 }
 
 function updateMediaStatus(league, mediaId, nextStatus, identity) {
-  const posts = runtimeMedia.get(league.id) || [];
-  const post = posts.find((item) => item.id === mediaId);
+  const runtimePosts = runtimeMedia.get(league.id) || [];
+  const post = runtimePosts.find((item) => item.id === mediaId)
+    || (league.media || []).find((item) => item.id === mediaId);
   if (!post) return null;
   const now = new Date().toISOString();
   post.status = nextStatus;

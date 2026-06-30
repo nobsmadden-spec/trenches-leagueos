@@ -105,6 +105,24 @@ async function apiMutation(path, method, body) {
   return result;
 }
 
+async function copyText(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    const field = document.createElement("textarea");
+    field.value = text;
+    field.setAttribute("readonly", "");
+    field.style.position = "fixed";
+    field.style.opacity = "0";
+    document.body.appendChild(field);
+    field.select();
+    const copied = document.execCommand("copy");
+    field.remove();
+    return copied;
+  }
+}
+
 function setView(name) {
   $(".hero").classList.toggle("hidden", name !== "dashboard");
   document.querySelectorAll(".view").forEach((view) => view.classList.toggle("active", view.id === `${name}-view`));
@@ -146,6 +164,11 @@ document.addEventListener("click", (event) => {
   const mediaCopy = event.target.closest("[data-media-copy]");
   if (mediaCopy) {
     copyMediaDraft(mediaCopy.dataset.mediaCopy);
+    return;
+  }
+  const mediaPostCopy = event.target.closest("[data-media-post-copy]");
+  if (mediaPostCopy) {
+    copyMediaPost(mediaPostCopy.dataset.mediaPostCopy);
     return;
   }
   const mediaStage = event.target.closest("[data-media-stage]");
@@ -695,8 +718,8 @@ function mediaPostActions(post) {
   const id = escapeHtml(post.id);
   if (post.status === "pending_review") return `<div class="media-card-actions"><button type="button" data-media-id="${id}" data-media-action="approve">Approve</button><button class="text-button" type="button" data-media-id="${id}" data-media-action="needs_work">Needs Work</button></div>`;
   if (post.status === "approved") return `<div class="media-card-actions"><button type="button" data-media-id="${id}" data-media-action="publish">Mark Published</button><button class="text-button" type="button" data-media-id="${id}" data-media-action="reject">Reject</button></div>`;
-  if (post.status === "draft") return `<div class="media-card-actions"><button type="button" data-media-id="${id}" data-media-action="approve">Approve</button><button class="text-button" type="button" data-media-copy="${escapeHtml(post.draftId || "")}">Copy Source</button></div>`;
-  return `<button class="text-button" type="button" data-media-copy="${escapeHtml(post.draftId || "")}">Copy Source</button>`;
+  if (post.status === "draft") return `<div class="media-card-actions"><button type="button" data-media-id="${id}" data-media-action="approve">Approve</button><button class="text-button" type="button" data-media-post-copy="${id}">Copy Source</button></div>`;
+  return `<button class="text-button" type="button" data-media-post-copy="${id}">Copy Source</button>`;
 }
 
 async function stageMediaDraft(draftId) {
@@ -732,12 +755,20 @@ async function copyMediaDraft(draftId) {
     draft.notes?.length ? `NOTES\n${draft.notes.map((note) => `- ${note}`).join("\n")}` : "",
     `COPY\n${draft.body}`
   ].filter(Boolean).join("\n\n");
-  try {
-    await navigator.clipboard.writeText(packageText);
-    if (button) button.textContent = "Copied";
-  } catch {
-    if (button) button.textContent = "Copy failed";
-  }
+  const copied = await copyText(packageText);
+  if (button) button.textContent = copied ? "Copied" : "Copy failed";
+}
+
+async function copyMediaPost(mediaId) {
+  const post = mediaPostCache.find((item) => item.id === mediaId);
+  if (!post) return;
+  const button = document.querySelector(`[data-media-post-copy="${mediaId}"]`);
+  const packageText = [
+    post.visualBrief ? `VISUAL BRIEF\n${post.visualBrief}` : "",
+    `COPY\n${post.body || [post.title, post.summary].filter(Boolean).join("\n")}`
+  ].filter(Boolean).join("\n\n");
+  const copied = await copyText(packageText);
+  if (button) button.textContent = copied ? "Copied" : "Copy failed";
 }
 
 async function loadOffice() {
@@ -948,8 +979,10 @@ $("#csv-files").addEventListener("change", async (event) => {
 $("#receiver-copy").addEventListener("click", async () => {
   updateReceiverUrl();
   const url = $("#receiver-url").value;
-  await navigator.clipboard.writeText(url);
-  $("#import-result").textContent = "Receiver URL copied. Paste it into Snallabot's Add Export URL field.";
+  const copied = await copyText(url);
+  $("#import-result").textContent = copied
+    ? "Receiver URL copied. Paste it into Snallabot's Add Export URL field."
+    : "Copy was blocked by the browser. Select the receiver URL above and copy it manually.";
 });
 
 $("#import-sample").addEventListener("click", async () => {
