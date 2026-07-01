@@ -427,9 +427,9 @@ function identityLabel(identity) {
   return identity?.displayName || identity?.username || identity?.id || null;
 }
 
-function stageMediaDraft(league, draft, identity) {
+function mediaPostFromDraft(draft, identity) {
   const now = new Date().toISOString();
-  const post = {
+  return {
     id: `media_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
     draftId: draft.id,
     type: draft.type,
@@ -448,6 +448,10 @@ function stageMediaDraft(league, draft, identity) {
     publishedAt: null,
     rejectedAt: null
   };
+}
+
+function stageMediaDraft(league, draft, identity) {
+  const post = mediaPostFromDraft(draft, identity);
   const posts = runtimeMedia.get(league.id) || [];
   runtimeMedia.set(league.id, [post, ...posts]);
   return post;
@@ -1022,7 +1026,11 @@ async function leagueRoute(request, response, url, identity) {
     const drafts = await mediaDraftsFor(league, identity);
     const draft = drafts.find((item) => item.id === body.draftId);
     if (!draft) return sendJson(response, 404, { error: "Media draft not found" }) ?? true;
-    return sendJson(response, 201, stageMediaDraft(league, draft, identity)) ?? true;
+    const postInput = mediaPostFromDraft(draft, identity);
+    const post = repository.createMediaPost
+      ? await repository.createMediaPost(league, postInput, identity.id, identityLabel(identity))
+      : stageMediaDraft(league, draft, identity);
+    return sendJson(response, 201, post) ?? true;
   }
   if (resource?.startsWith("media/") && request.method === "PATCH") {
     if (!hasLeagueRole(identity, league.id, "commissioner")) return sendJson(response, identity ? 403 : 401, { error: "Commissioner role required" }) ?? true;
@@ -1031,11 +1039,16 @@ async function leagueRoute(request, response, url, identity) {
     const statusByAction = { approve: "approved", publish: "published", reject: "rejected", needs_work: "draft" };
     const nextStatus = statusByAction[body.action];
     if (!nextStatus) return sendJson(response, 400, { error: "Unsupported media action" }) ?? true;
-    const post = updateMediaStatus(league, mediaId, nextStatus, identity);
+    const post = repository.updateMediaPostStatus
+      ? await repository.updateMediaPostStatus(league, mediaId, nextStatus, identity.id, identityLabel(identity))
+      : updateMediaStatus(league, mediaId, nextStatus, identity);
     if (!post) return sendJson(response, 404, { error: "Media post not found" }) ?? true;
     return sendJson(response, 200, post) ?? true;
   }
-  if (resource === "media") return sendJson(response, 200, mediaForLeague(league)) ?? true;
+  if (resource === "media") {
+    const posts = repository.listMediaPosts ? await repository.listMediaPosts(league) : mediaForLeague(league);
+    return sendJson(response, 200, posts) ?? true;
+  }
   if (resource === "media-drafts") return sendJson(response, 200, await mediaDraftsFor(league, identity)) ?? true;
   if (resource === "standings") return sendJson(response, 200, standingsByDivision(league.teams)) ?? true;
   if (resource === "stat-leaders") {

@@ -189,6 +189,28 @@ function normalizeRecognitionActivation(row) {
   };
 }
 
+function normalizeMediaPost(row) {
+  return {
+    id: row.id,
+    draftId: row.draftId || null,
+    type: row.type,
+    channel: row.channel || null,
+    title: row.title,
+    summary: row.summary || null,
+    body: row.body,
+    visualBrief: row.visualBrief || null,
+    notes: Array.isArray(row.notes) ? row.notes : [],
+    status: lower(row.status),
+    createdBy: row.createdBy || null,
+    updatedBy: row.updatedBy || null,
+    approvedAt: row.approvedAt?.toISOString?.() || row.approvedAt || null,
+    publishedAt: row.publishedAt?.toISOString?.() || row.publishedAt || null,
+    rejectedAt: row.rejectedAt?.toISOString?.() || row.rejectedAt || null,
+    createdAt: row.createdAt?.toISOString?.() || row.createdAt,
+    updatedAt: row.updatedAt?.toISOString?.() || row.updatedAt
+  };
+}
+
 const gameStatuses = new Set(["UNSCHEDULED", "SCHEDULED", "PLAYED", "FAIR_SIM", "FORCE_WIN_HOME", "FORCE_WIN_AWAY", "ADMIN_REVIEW"]);
 
 function datasetPayload(datasets, name) {
@@ -554,6 +576,59 @@ export function createPrismaRepository(client = prismaClient()) {
         include: { assets: true }
       });
       return trades.map(normalizeTrade);
+    },
+    async listMediaPosts(league) {
+      const posts = await client.mediaPost.findMany({
+        where: { leagueId: league.databaseId },
+        orderBy: { createdAt: "desc" }
+      });
+      return posts.map(normalizeMediaPost);
+    },
+    async createMediaPost(league, input, actorUserId, actorLabel) {
+      const post = await client.$transaction(async (transaction) => {
+        const created = await transaction.mediaPost.create({
+          data: {
+            leagueId: league.databaseId,
+            draftId: input.draftId || null,
+            type: input.type,
+            channel: input.channel || null,
+            title: input.title,
+            summary: input.summary || null,
+            body: input.body || "",
+            visualBrief: input.visualBrief || null,
+            notes: input.notes || [],
+            status: "PENDING_REVIEW",
+            createdBy: actorLabel || null,
+            updatedBy: actorLabel || null
+          }
+        });
+        await transaction.auditLog.create({
+          data: { leagueId: league.databaseId, actorUserId, action: "media.created", entityType: "MediaPost", entityId: created.id, metadata: { draftId: input.draftId || null, channel: input.channel || null } }
+        });
+        return created;
+      });
+      return normalizeMediaPost(post);
+    },
+    async updateMediaPostStatus(league, mediaId, nextStatus, actorUserId, actorLabel) {
+      const status = nextStatus.toUpperCase();
+      const now = new Date();
+      const data = { status, updatedBy: actorLabel || null };
+      if (status === "APPROVED") data.approvedAt = now;
+      if (status === "PUBLISHED") data.publishedAt = now;
+      if (status === "REJECTED") data.rejectedAt = now;
+      const post = await client.$transaction(async (transaction) => {
+        const existing = await transaction.mediaPost.findFirst({
+          where: { id: mediaId, leagueId: league.databaseId },
+          select: { id: true }
+        });
+        if (!existing) return null;
+        const updated = await transaction.mediaPost.update({ where: { id: existing.id }, data });
+        await transaction.auditLog.create({
+          data: { leagueId: league.databaseId, actorUserId, action: "media.status_updated", entityType: "MediaPost", entityId: mediaId, metadata: { status } }
+        });
+        return updated;
+      });
+      return post ? normalizeMediaPost(post) : null;
     },
     async recordGameOutcome(league, gameId, outcome, actorUserId) {
       const statusByOutcome = { played: "PLAYED", fair_sim: "FAIR_SIM", force_win_away: "FORCE_WIN_AWAY", force_win_home: "FORCE_WIN_HOME", cpu: "PLAYED", strike_away: "ADMIN_REVIEW", strike_home: "ADMIN_REVIEW" };

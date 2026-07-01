@@ -62,55 +62,64 @@ enum TradeSide {
   TEAM_B
 }
 
+enum MediaStatus {
+  DRAFT
+  PENDING_REVIEW
+  APPROVED
+  PUBLISHED
+  REJECTED
+}
+
 model User {
-  id             String             @id @default(cuid())
-  discordId      String             @unique
-  username       String
-  displayName    String
-  avatarUrl      String?
-  createdAt      DateTime           @default(now())
-  updatedAt      DateTime           @updatedAt
-  sessions       Session[]
-  memberships    LeagueMembership[]
-  createdLeagues League[]           @relation("LeagueCreator")
-  auditEvents    AuditLog[]          @relation("AuditActor")
-  submittedTrades Trade[]
+  id                     String                  @id @default(cuid())
+  discordId              String                  @unique
+  username               String
+  displayName            String
+  avatarUrl              String?
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+  sessions               Session[]
+  memberships            LeagueMembership[]
+  createdLeagues         League[]                @relation("LeagueCreator")
+  auditEvents            AuditLog[]              @relation("AuditActor")
+  submittedTrades        Trade[]
   recognitionActivations RecognitionActivation[]
 }
 
 model Session {
-  id        String   @id @default(cuid())
-  userId    String
-  expiresAt DateTime
-  createdAt DateTime @default(now())
+  id         String   @id @default(cuid())
+  userId     String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
   lastSeenAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([expiresAt])
 }
 
 model League {
-  id             String             @id @default(cuid())
-  slug           String             @unique
-  name           String
-  gameType       GameType
-  discordGuildId String?            @unique
-  createdById    String
-  createdAt      DateTime           @default(now())
-  updatedAt      DateTime           @updatedAt
-  createdBy      User               @relation("LeagueCreator", fields: [createdById], references: [id])
-  memberships    LeagueMembership[]
-  teams          Team[]
-  seasons        Season[]
-  games          Game[]
-  importRuns     ImportRun[]
-  rawExports     RawExport[]
-  auditEvents    AuditLog[]
-  players        Player[]
-  teamSnapshots  TeamSeasonSnapshot[]
-  trades         Trade[]
+  id                     String                  @id @default(cuid())
+  slug                   String                  @unique
+  name                   String
+  gameType               GameType
+  discordGuildId         String?                 @unique
+  createdById            String
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+  createdBy              User                    @relation("LeagueCreator", fields: [createdById], references: [id])
+  memberships            LeagueMembership[]
+  teams                  Team[]
+  seasons                Season[]
+  games                  Game[]
+  importRuns             ImportRun[]
+  rawExports             RawExport[]
+  auditEvents            AuditLog[]
+  players                Player[]
+  teamSnapshots          TeamSeasonSnapshot[]
+  trades                 Trade[]
   recognitionActivations RecognitionActivation[]
+  mediaPosts             MediaPost[]
 }
 
 model LeagueMembership {
@@ -132,7 +141,7 @@ model LeagueMembership {
 }
 
 model Team {
-  id              String             @id @default(cuid())
+  id              String               @id @default(cuid())
   leagueId        String
   externalId      String
   name            String
@@ -140,33 +149,33 @@ model Team {
   conference      String
   division        String
   primaryColor    String?
-  createdAt       DateTime           @default(now())
-  updatedAt       DateTime           @updatedAt
-  league          League             @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  league          League               @relation(fields: [leagueId], references: [id], onDelete: Cascade)
   ownerMembership LeagueMembership?
-  homeGames       Game[]             @relation("HomeTeam")
-  awayGames       Game[]             @relation("AwayTeam")
+  homeGames       Game[]               @relation("HomeTeam")
+  awayGames       Game[]               @relation("AwayTeam")
   players         Player[]
   seasonSnapshots TeamSeasonSnapshot[]
-  tradesAsTeamA   Trade[]            @relation("TradeTeamA")
-  tradesAsTeamB   Trade[]            @relation("TradeTeamB")
+  tradesAsTeamA   Trade[]              @relation("TradeTeamA")
+  tradesAsTeamB   Trade[]              @relation("TradeTeamB")
 
   @@unique([leagueId, externalId])
   @@index([leagueId, conference, division])
 }
 
 model Season {
-  id         String      @id @default(cuid())
-  leagueId   String
-  number     Int
-  label      String
-  isCurrent  Boolean     @default(false)
-  createdAt  DateTime    @default(now())
-  league     League      @relation(fields: [leagueId], references: [id], onDelete: Cascade)
-  weeks      Week[]
-  games      Game[]
-  importRuns ImportRun[]
-  rawExports RawExport[]
+  id            String               @id @default(cuid())
+  leagueId      String
+  number        Int
+  label         String
+  isCurrent     Boolean              @default(false)
+  createdAt     DateTime             @default(now())
+  league        League               @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  weeks         Week[]
+  games         Game[]
+  importRuns    ImportRun[]
+  rawExports    RawExport[]
   teamSnapshots TeamSeasonSnapshot[]
 
   @@unique([leagueId, number])
@@ -239,46 +248,46 @@ model TeamSeasonSnapshot {
 }
 
 model Game {
-  id           String     @id @default(cuid())
-  leagueId     String
-  seasonId     String
-  weekId       String
-  externalId   String
-  homeTeamId   String
-  awayTeamId   String
-  status       GameStatus @default(UNSCHEDULED)
-  scheduledAt  DateTime?
-  homeScore    Int?
-  awayScore    Int?
-  discordThreadId String? @unique
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
-  league       League     @relation(fields: [leagueId], references: [id], onDelete: Cascade)
-  season       Season     @relation(fields: [seasonId], references: [id], onDelete: Cascade)
-  week         Week       @relation(fields: [weekId], references: [id], onDelete: Cascade)
-  homeTeam     Team       @relation("HomeTeam", fields: [homeTeamId], references: [id])
-  awayTeam     Team       @relation("AwayTeam", fields: [awayTeamId], references: [id])
+  id              String     @id @default(cuid())
+  leagueId        String
+  seasonId        String
+  weekId          String
+  externalId      String
+  homeTeamId      String
+  awayTeamId      String
+  status          GameStatus @default(UNSCHEDULED)
+  scheduledAt     DateTime?
+  homeScore       Int?
+  awayScore       Int?
+  discordThreadId String?    @unique
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  league          League     @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  season          Season     @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  week            Week       @relation(fields: [weekId], references: [id], onDelete: Cascade)
+  homeTeam        Team       @relation("HomeTeam", fields: [homeTeamId], references: [id])
+  awayTeam        Team       @relation("AwayTeam", fields: [awayTeamId], references: [id])
 
   @@unique([leagueId, externalId])
   @@index([leagueId, seasonId, weekId, status])
 }
 
 model Trade {
-  id          String      @id @default(cuid())
-  leagueId    String
-  teamAId     String
-  teamBId     String
+  id            String       @id @default(cuid())
+  leagueId      String
+  teamAId       String
+  teamBId       String
   submittedById String?
-  status      TradeStatus @default(NEGOTIATING)
-  votesFor    Int         @default(0)
-  votesNeeded Int         @default(3)
-  submittedAt DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  league      League      @relation(fields: [leagueId], references: [id], onDelete: Cascade)
-  teamA       Team        @relation("TradeTeamA", fields: [teamAId], references: [id])
-  teamB       Team        @relation("TradeTeamB", fields: [teamBId], references: [id])
-  submittedBy User?       @relation(fields: [submittedById], references: [id], onDelete: SetNull)
-  assets      TradeAsset[]
+  status        TradeStatus  @default(NEGOTIATING)
+  votesFor      Int          @default(0)
+  votesNeeded   Int          @default(3)
+  submittedAt   DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  league        League       @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  teamA         Team         @relation("TradeTeamA", fields: [teamAId], references: [id])
+  teamB         Team         @relation("TradeTeamB", fields: [teamBId], references: [id])
+  submittedBy   User?        @relation(fields: [submittedById], references: [id], onDelete: SetNull)
+  assets        TradeAsset[]
 
   @@index([leagueId, status, submittedAt])
   @@index([teamAId])
@@ -316,22 +325,47 @@ model RecognitionActivation {
   @@index([leagueId, userId, activatedAt])
 }
 
-model ImportRun {
-  id          String        @id @default(cuid())
+model MediaPost {
+  id          String      @id @default(cuid())
   leagueId    String
-  seasonId    String?
-  weekId      String?
-  status      ImportStatus  @default(QUEUED)
-  source      String
-  startedAt   DateTime?
-  completedAt DateTime?
+  draftId     String?
+  type        String
+  channel     String?
+  title       String
+  summary     String?
+  body        String      @db.Text
+  visualBrief String?     @db.Text
+  notes       Json?
+  status      MediaStatus @default(PENDING_REVIEW)
+  createdBy   String?
+  updatedBy   String?
+  approvedAt  DateTime?
+  publishedAt DateTime?
+  rejectedAt  DateTime?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  league      League      @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+
+  @@index([leagueId, status, createdAt])
+  @@index([leagueId, draftId])
+}
+
+model ImportRun {
+  id           String          @id @default(cuid())
+  leagueId     String
+  seasonId     String?
+  weekId       String?
+  status       ImportStatus    @default(QUEUED)
+  source       String
+  startedAt    DateTime?
+  completedAt  DateTime?
   errorMessage String?
-  createdAt   DateTime      @default(now())
-  league      League        @relation(fields: [leagueId], references: [id], onDelete: Cascade)
-  season      Season?       @relation(fields: [seasonId], references: [id], onDelete: SetNull)
-  week        Week?         @relation(fields: [weekId], references: [id], onDelete: SetNull)
-  datasets    ImportDataset[]
-  rawExports  RawExport[]
+  createdAt    DateTime        @default(now())
+  league       League          @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  season       Season?         @relation(fields: [seasonId], references: [id], onDelete: SetNull)
+  week         Week?           @relation(fields: [weekId], references: [id], onDelete: SetNull)
+  datasets     ImportDataset[]
+  rawExports   RawExport[]
 
   @@index([leagueId, createdAt])
 }
@@ -350,7 +384,7 @@ model ImportDataset {
 }
 
 model RawExport {
-  id          String    @id @default(cuid())
+  id          String     @id @default(cuid())
   leagueId    String
   seasonId    String?
   weekId      String?
@@ -360,10 +394,10 @@ model RawExport {
   sha256      String
   storageKey  String
   payload     Json?
-  createdAt   DateTime  @default(now())
-  league      League    @relation(fields: [leagueId], references: [id], onDelete: Cascade)
-  season      Season?   @relation(fields: [seasonId], references: [id], onDelete: SetNull)
-  week        Week?     @relation(fields: [weekId], references: [id], onDelete: SetNull)
+  createdAt   DateTime   @default(now())
+  league      League     @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  season      Season?    @relation(fields: [seasonId], references: [id], onDelete: SetNull)
+  week        Week?      @relation(fields: [weekId], references: [id], onDelete: SetNull)
   importRun   ImportRun? @relation(fields: [importRunId], references: [id], onDelete: SetNull)
 
   @@unique([leagueId, sha256])
@@ -371,16 +405,16 @@ model RawExport {
 }
 
 model AuditLog {
-  id         String   @id @default(cuid())
-  leagueId   String
+  id          String   @id @default(cuid())
+  leagueId    String
   actorUserId String?
-  action     String
-  entityType String
-  entityId   String?
-  metadata   Json?
-  createdAt  DateTime @default(now())
-  league     League   @relation(fields: [leagueId], references: [id], onDelete: Cascade)
-  actor      User?    @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+  action      String
+  entityType  String
+  entityId    String?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  league      League   @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  actor       User?    @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
 
   @@index([leagueId, createdAt])
   @@index([entityType, entityId])

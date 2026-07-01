@@ -337,6 +337,60 @@ test("Prisma recognition activations are listed and audited", async () => {
   assert.equal(activations[0].activatedAt, "2026-06-26T12:00:00.000Z");
 });
 
+test("Prisma media queue persists posts and audited status changes", async () => {
+  const calls = { created: null, updated: null, audits: [] };
+  const storedPost = {
+    id: "media-1",
+    leagueId: "league-1",
+    draftId: "game-of-the-week",
+    type: "Game of the Week",
+    channel: "#announcements",
+    title: "Bills at Ravens",
+    summary: "AFC contenders meet.",
+    body: "Full preview copy",
+    visualBrief: "Dark stadium matchup graphic",
+    notes: ["Attach visual first"],
+    status: "PENDING_REVIEW",
+    createdBy: "Coach Devin",
+    updatedBy: "Coach Devin",
+    approvedAt: null,
+    publishedAt: null,
+    rejectedAt: null,
+    createdAt: new Date("2026-06-30T12:00:00Z"),
+    updatedAt: new Date("2026-06-30T12:00:00Z")
+  };
+  const transaction = {
+    mediaPost: {
+      create: async ({ data }) => {
+        calls.created = data;
+        return { ...storedPost, ...data };
+      },
+      findFirst: async ({ where }) => where.id === "media-1" ? { id: "media-1" } : null,
+      update: async ({ data }) => {
+        calls.updated = data;
+        return { ...storedPost, ...data, updatedAt: new Date("2026-06-30T12:05:00Z") };
+      }
+    },
+    auditLog: { create: async ({ data }) => { calls.audits.push(data); } }
+  };
+  const client = {
+    mediaPost: { findMany: async () => [storedPost] },
+    $transaction: async (operation) => operation(transaction)
+  };
+  const repository = createPrismaRepository(client);
+  const league = { databaseId: "league-1" };
+  const created = await repository.createMediaPost(league, storedPost, "user-1", "Coach Devin");
+  const approved = await repository.updateMediaPostStatus(league, "media-1", "approved", "user-1", "Coach Devin");
+  const listed = await repository.listMediaPosts(league);
+
+  assert.equal(created.status, "pending_review");
+  assert.equal(calls.created.notes[0], "Attach visual first");
+  assert.equal(approved.status, "approved");
+  assert.ok(calls.updated.approvedAt instanceof Date);
+  assert.equal(listed[0].draftId, "game-of-the-week");
+  assert.deepEqual(calls.audits.map((entry) => entry.action), ["media.created", "media.status_updated"]);
+});
+
 test("Prisma import recording writes datasets, raw exports, and audit metadata", async () => {
   const calls = { datasets: [], rawExports: [], audit: null, transactionOptions: null };
   const transaction = {
